@@ -428,7 +428,9 @@ const FLOOR_FS = `uniform vec3 uGround; uniform vec3 uLine; uniform vec3 uFog; u
     float near = exp(-abs(vWorld.z) * 0.12);
     vec3 c = uGround * (0.12 + 0.22 * near);
     float g1 = grid(p, 1.2) * 0.5, g4 = grid(p / 4.0, 1.6);
-    c += uLine * (g1 * 0.22 + g4 * 0.6) * (0.25 + 0.75 * near) * (0.85 + 0.3 * uBeat);
+    // la rejilla se apaga junto a la línea del suelo: si no, cada cruce con ella brilla y la línea parece punteada
+    float clearLine = smoothstep(0.3, 1.4, abs(vWorld.z - 0.2));
+    c += uLine * (g1 * 0.22 + g4 * 0.6) * (0.25 + 0.75 * near) * (0.85 + 0.3 * uBeat) * clearLine;
     c += uLine * smoothstep(0.7, 0.0, abs(vWorld.z - 0.2)) * 0.25;
     float d = length(vWorld - cameraPosition);
     float fog = 1.0 - exp(-uFogD * uFogD * d * d);
@@ -763,7 +765,8 @@ function buildLevel(L) {
   if (W.player) precompile();
   const len = L.endX / BU;
   for (const f of [W.floor, W.ceil]) { f.scale.set(len + 260, 1, 90); f.position.x = len / 2 + 40; }
-  for (const f of [W.floorLine, W.ceilLine]) { f.scale.set(len + 260, 0.05, 0.05); f.position.set(len / 2 + 40, 0, 0.55); }
+  // 0.1 de grosor: más fina se queda por debajo de un píxel a lo lejos y se ve punteada
+  for (const f of [W.floorLine, W.ceilLine]) { f.scale.set(len + 260, 0.1, 0.1); f.position.set(len / 2 + 40, 0, 0.55); }
 }
 
 // Objeto de un grupo (o.grp): sus mallas van sueltas (no instanciadas con las demás) dentro de un envoltorio
@@ -853,7 +856,9 @@ function buildDecos(def, grp) {
         const w = d.w || 1, h = d.h || 6;
         const body = new THREE.Mesh(GEO.box, MAT.body);
         body.scale.set(w * 0.8, h, w * 0.8);
-        const e = new THREE.Mesh(bars(prismEdges([[-0.4 * w, 0], [0.4 * w, 0], [0.4 * w, h], [-0.4 * w, h]], -0.4 * w, 0.4 * w), 0.04), neonOf(hex, 1.8 * a));
+        // sin las aristas de la base: apoyadas en el suelo se veían como trazos sueltos sobre la línea del suelo
+        const segs = prismEdges([[-0.4 * w, 0], [0.4 * w, 0], [0.4 * w, h], [-0.4 * w, h]], -0.4 * w, 0.4 * w).filter(([p, q]) => p.y > 0.01 || q.y > 0.01);
+        const e = new THREE.Mesh(bars(segs, 0.04), neonOf(hex, 1.8 * a));
         e.userData.ownGeo = true;
         body.position.y = h / 2;
         m.add(body, e);
@@ -1516,6 +1521,7 @@ function makePlayer(c1, c2) {
   const trail = makeTrail(c1);
   W.scene.add(trail.mesh);
   const streak = makeTrail(c2);
+  streak.fade = true;
   streak.mesh.material.opacity = 0.45;
   streak.mesh.material.blending = THREE.AdditiveBlending;
   streak.mesh.material.depthWrite = false;
@@ -1769,7 +1775,11 @@ function ribbon(t, pts, w) {
     const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
     const ww = w * (i / Math.max(1, n - 1));
     t.posArr.set([x - dy * ww, y + dx * ww, -0.05, x + dy * ww, y - dx * ww, -0.05], i * 6);
+    // la estela del salto se desvanece hacia la cola (si no, parece un cono sólido pegado al jugador)
+    const a = t.fade ? Math.pow(i / Math.max(1, n - 1), 2.2) : 1;
+    t.colArr[i * 8 + 3] = a; t.colArr[i * 8 + 7] = a;
   }
+  if (t.fade) t.geo.attributes.color.needsUpdate = true;
   t.geo.attributes.position.needsUpdate = true;
   t.geo.setDrawRange(0, Math.max(0, n - 1) * 6);
   t.mesh.visible = n > 2;
@@ -1780,12 +1790,14 @@ function makeTrail(hex) {
   const posArr = new Float32Array(MAX * 2 * 3);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage));
+  const colArr = new Float32Array(MAX * 2 * 4).fill(1);
+  geo.setAttribute('color', new THREE.BufferAttribute(colArr, 4).setUsage(THREE.DynamicDrawUsage));
   const idx = [];
   for (let i = 0; i < MAX - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   geo.setIndex(idx);
-  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(2.2), side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(2.2), side: THREE.DoubleSide, transparent: true, opacity: 0.9, vertexColors: true }));
   mesh.frustumCulled = false;
-  return { mesh, posArr, geo, MAX };
+  return { mesh, posArr, colArr, geo, MAX, fade: false };
 }
 function updateTrail(pts, w) {
   const t = W.player.trail;
@@ -2017,7 +2029,7 @@ function frame(view, dt) {
   }
   const cu = W.cityMat.uniforms;
   cu.uBody.value.copy(bg).multiplyScalar(0.04); cu.uWin.value.copy(cols.line).lerp(cols.obj, 0.5).multiplyScalar(0.45); cu.uFog.value.copy(fogC); cu.uFogD.value = fogD; cu.uBeat.value = beat;
-  W.floorLine.material.color.copy(cols.line).multiplyScalar(1.8 + beat * 0.8);
+  W.floorLine.material.color.copy(cols.line).multiplyScalar(1.4 + beat * 0.6);
   // paisaje del fondo
   for (const sc of W.scenery) {
     const u = sc.mat.uniforms;

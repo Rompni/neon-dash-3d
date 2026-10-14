@@ -236,7 +236,16 @@
   const ORDER = ['primer-pulso', 'orbita', 'fase-doble', 'ladera', 'espejo', 'abismo', 'bano-de-sangre', 'telarana', 'engranaje', 'vertigo', 'zigzag', 'apex'];
   const H = { Builder, rejilla, ritmo, adornos, UPS };
   const isNode = typeof module !== 'undefined' && module.exports;
-  const list = ORDER.map((id) => (isNode ? require('./niveles/' + id + '.js') : root.NIVELES[id])(H));
+  // Lo que queda después de la meta (p. ej. al recortar la canción y con ella r.end) no se juega: se quita.
+  function recortar(def) {
+    const end = def.length;
+    def.objects = def.objects.filter((o) => o.x < end - 0.5).map((o) => (o.t === 'block' && o.x + (o.w || 1) > end ? Object.assign({}, o, { w: end - o.x }) : o));
+    def.decos = (def.decos || []).filter((d) => d.x < end + 8);
+    def.triggers = (def.triggers || []).filter((t) => t.x < end);
+    def.colors = def.colors.filter((c, i) => i === 0 || c.x < end);
+    return def;
+  }
+  const list = ORDER.map((id) => recortar((isNode ? require('./niveles/' + id + '.js') : root.NIVELES[id])(H)));
 
   const api = { Builder, list, H, ORDER };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

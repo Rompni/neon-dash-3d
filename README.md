@@ -6,7 +6,8 @@ mundo 3D con cámara en perspectiva, bloom, ciudad nocturna, partículas y model
 
 ## Qué tiene
 
-- **12 niveles con canciones reales** (generadas con Flow Music, IA), de 1:30 a 2:15 cada uno. Cada nivel sigue las secciones
+- **12 niveles con canciones reales** (generadas con Flow Music, IA): los 8 originales duran como mucho 1:30 y los nuevos
+  (Engranaje, Vértigo, ZigZag, Apex) entre 1:30 y 2:05. La duración sale en la tarjeta de cada nivel. Cada nivel sigue las secciones
   de su canción: cambios de modo y portales al empezar los drops, saltos y orbes en los tiempos, destellos por compás, colores por
   sección y triggers que mueven obstáculos y la cámara. Primer Pulso, Órbita, Fase Doble, Ladera, Espejo, Abismo, Baño de Sangre,
   Telaraña, Engranaje, Vértigo, ZigZag y Apex (el final demonio).
@@ -67,7 +68,8 @@ src/editor.js   editor de niveles
 src/levels.js   Builder y utilidades de los niveles (ritmo, adornos) y el orden del menú
 src/niveles/    un archivo por nivel
 src/tracks.js   datos medidos de cada canción: BPM, primer compás, duración, energía por compás
-src/music/      las canciones en MP3 (recortadas, volumen igualado a −13 LUFS)
+src/music/      las canciones en MP3 (recortadas al final de una sección, volumen igualado a −13 LUFS); lo que queda
+                tras la meta de un nivel (r.end) se quita solo (levels.js, recortar)
 src/audio.js    reproducción de las canciones, música sintetizada de respaldo y efectos
 src/meta.js     progreso: orbes, diamantes, tienda, logros, misiones, cofres y música propia por nivel
 src/demos.js    rutas ganadoras del bot para la demo del menú (generado por tools/solve-demos.js)

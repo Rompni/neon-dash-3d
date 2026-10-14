@@ -404,6 +404,8 @@
     b.pulse(r(93), '#ffffff', 6);
     b.shake(r(93), 4, 3);
     b.deco(R(93) + 14, 3, 'diamond', { r: 1.4, color: '#ff3b5c', beat: true });
+    // moneda que sustituye a la que quedó fuera al recortar la canción a 1:30 (comprobada con el bot)
+    b.coin(812, 4.5);
     return b.build(r.end);
   }
 

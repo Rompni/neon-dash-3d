@@ -298,6 +298,8 @@
     b.color(r(59), '#2a53d6', '#1c3aa8', { line: '#bcd0ff', obj: '#ff9f3b' });
     b.pulse(r(59), '#bcd0ff', 6);
     b.deco(r(59) + 8, 3, 'diamond', { r: 1.4, color: '#bcd0ff', beat: true });
+    // moneda que sustituye a la que quedó fuera al recortar la canción a 1:30 (comprobada con el bot)
+    b.coin(509, 2);
     return b.build(r.end);
   }
 

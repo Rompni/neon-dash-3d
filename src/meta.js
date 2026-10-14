@@ -273,7 +273,8 @@ async function prepareSong(def) {
 }
 function renderSongRow() {
   const def = defs[game.sel], s = songFor(def);
-  $('lvSong').textContent = s ? s.name : 'Original';
+  const tr = def.song && def.song.startsWith('track:') && window.Tracks ? Tracks.TRACKS[def.song.slice(6)] : null;
+  $('lvSong').textContent = s ? s.name : tr ? tr.name : 'Original';
   $('lvSongReset').hidden = !s;
 }
 $('lvSongBtn').addEventListener('click', () => { click(); $('lvSongFile').click(); });

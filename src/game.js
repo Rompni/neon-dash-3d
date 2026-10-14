@@ -676,10 +676,18 @@ function selectLevel(i) {
   renderLevelCard();
   previewLevel(game.sel);
 }
+// Duración del nivel (s): lo que tarda en llegar a la meta según los portales de velocidad.
+const durCache = new Map();
+function levelDuration(def) {
+  if (!durCache.has(def.id)) durCache.set(def.id, timeAtX(def, Sim.compileLevel(def).endX / B));
+  return durCache.get(def.id);
+}
+function fmtDur(s) { s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function renderLevelCard() {
   const def = defs[game.sel];
   $('lvName').textContent = def.name;
   $('lvDiff').textContent = def.difficulty || '';
+  $('lvTime').textContent = '⏱ ' + fmtDur(levelDuration(def));
   $('lvStars').textContent = '★'.repeat(Math.min(10, def.stars || 0));
   const modes = new Set([def.startMode || 'cube']);
   for (const o of def.objects) if (o.t === 'portal' && MODE_NAME[o.kind]) modes.add(o.kind);
