@@ -1,0 +1,13 @@
+{
+  "name": "neon-dash-3d",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataformas rítmico en 3D (Three.js) con la física de Neon Dash",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node test/physics.test.js && node test/modes.test.js && node test/demos.test.js",
+    "bot": "node test/bot.js 4 && node test/bot.js 12",
+    "demos": "node tools/solve-demos.js 6",
+    "serve": "python3 -m http.server 8792 --directory dist"
+  }
+}

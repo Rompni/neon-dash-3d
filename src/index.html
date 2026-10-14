@@ -1,0 +1,293 @@
+<title>Neon Dash 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+  :root {
+    --ink: #07060f;
+    --panel: rgba(14, 11, 34, 0.86);
+    --panel-2: rgba(26, 20, 60, 0.9);
+    --gold: #ffcf4a;
+    --gold-2: #ff9e2c;
+    --text: #f4f1ff;
+    --muted: #a9a2d6;
+    --cyan: #27e3ff;
+    --pink: #ff4fa3;
+    --green: #5dff7a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #05040c; color: var(--text); overflow: hidden; }
+  body { font-family: 'Nunito', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: none; }
+  #app { position: fixed; inset: 0; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+
+  .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; pointer-events: none; }
+  .screen[hidden] { display: none; }
+  .screen > * { pointer-events: auto; }
+  .screen.dim { background: radial-gradient(ellipse at center, rgba(5, 4, 14, 0.35), rgba(5, 4, 14, 0.78)); }
+
+  .panel {
+    position: relative; background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 2px solid rgba(160, 140, 255, 0.35); border-radius: 18px; padding: 26px 26px 22px;
+    width: min(460px, 100%); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(6px);
+  }
+  .panel::before, .panel::after { content: ''; position: absolute; width: 22px; height: 22px; border: 4px solid var(--gold); }
+  .panel::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0; border-radius: 10px 0 0 0; }
+  .panel::after { right: -4px; bottom: -4px; border-left: 0; border-top: 0; border-radius: 0 0 10px 0; }
+  h1, h2 { font-family: 'Lilita One', 'Nunito', sans-serif; font-weight: 400; margin: 0; letter-spacing: 0.5px; }
+  h2 { font-size: 30px; text-align: center; margin-bottom: 14px; }
+
+  .title { text-align: center; }
+  .title h1 {
+    font-size: clamp(54px, 12vw, 116px); line-height: 0.9;
+    background: linear-gradient(180deg, #ffffff 0%, #d6c9ff 45%, #8f7bff 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 4px 0 #2a1d6e) drop-shadow(0 0 26px rgba(140, 110, 255, 0.55));
+  }
+  .title h1 span { display: block; background: linear-gradient(180deg, #fff2a8, var(--gold) 50%, var(--gold-2)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 0 #6b3a00); }
+  .title p { margin: 14px 0 26px; color: var(--muted); font-weight: 800; letter-spacing: 3px; text-transform: uppercase; font-size: 13px; }
+  .menu-buttons { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+  .btn {
+    font: inherit; font-family: 'Lilita One', sans-serif; font-size: 22px; color: #10230a; cursor: pointer;
+    border: 0; border-radius: 14px; padding: 12px 28px; min-width: 150px;
+    background: linear-gradient(180deg, #a6ff6a, #4fd62c); box-shadow: 0 5px 0 #23810e, 0 10px 24px rgba(0, 0, 0, 0.35);
+    transition: transform 0.08s, filter 0.15s;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #23810e; }
+  .btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .btn.big { font-size: 36px; padding: 14px 56px; }
+  .btn.purple { color: #fff; background: linear-gradient(180deg, #b48cff, #7a4cf0); box-shadow: 0 5px 0 #4a24a8, 0 10px 24px rgba(0, 0, 0, 0.35); }
+  .btn.orange { color: #3a1a00; background: linear-gradient(180deg, #ffd36a, #ff9e2c); box-shadow: 0 5px 0 #b05a00, 0 10px 24px rgba(0, 0, 0, 0.35); }
+  .btn.ghost { color: var(--text); background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.18); }
+  .btn.small { font-size: 18px; padding: 9px 18px; min-width: 0; }
+  .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+
+  .corner { position: absolute; top: max(14px, env(safe-area-inset-top)); display: flex; gap: 10px; }
+  .corner.left { left: 14px; } .corner.right { right: 14px; }
+  .icon-btn {
+    width: 46px; height: 46px; border-radius: 12px; border: 0; cursor: pointer; color: #fff; font-size: 20px;
+    background: linear-gradient(180deg, #a07cff, #6a3fe0); box-shadow: 0 4px 0 #3e1fa0; display: grid; place-items: center;
+  }
+  .icon-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #3e1fa0; }
+
+  /* selector de niveles */
+  .level-card { text-align: center; }
+  .level-card .name { font-family: 'Lilita One', sans-serif; font-size: 38px; line-height: 1; }
+  .badges { display: flex; gap: 8px; justify-content: center; align-items: center; margin: 10px 0 4px; flex-wrap: wrap; }
+  .badge { font-weight: 900; font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #2b2360; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+  .stars { color: var(--gold); font-size: 18px; letter-spacing: 2px; }
+  .modes { color: var(--muted); font-weight: 800; font-size: 14px; margin-top: 4px; }
+  .bars { display: grid; gap: 8px; margin: 16px 0 4px; }
+  .bar { display: grid; grid-template-columns: 74px 1fr 44px; align-items: center; gap: 10px; font-weight: 900; font-size: 14px; color: var(--muted); }
+  .bar .track { height: 14px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+  .bar .fill { height: 100%; background: linear-gradient(90deg, #5dff7a, #27e3ff); border-radius: 99px; }
+  .bar.practice .fill { background: linear-gradient(90deg, #27e3ff, #b48cff); }
+  .coins { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+  .coin-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255, 210, 58, 0.5); }
+  .coin-dot.got { background: radial-gradient(circle at 35% 35%, #fff3a8, #ffd23a 55%, #d68a00); border-color: #fff3a8; box-shadow: 0 0 12px rgba(255, 210, 58, 0.7); }
+  .level-nav { display: flex; align-items: center; gap: 14px; width: min(620px, 100%); }
+  .level-nav .panel { flex: 1; }
+  .arrow { flex: none; width: 52px; height: 64px; border-radius: 14px; border: 0; cursor: pointer; font-size: 28px; color: #fff; background: linear-gradient(180deg, #a07cff, #6a3fe0); box-shadow: 0 4px 0 #3e1fa0; }
+  .arrow:active { transform: translateY(2px); box-shadow: 0 2px 0 #3e1fa0; }
+  .dots { display: flex; gap: 6px; justify-content: center; margin-top: 16px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); }
+  .dots i.on { background: var(--gold); }
+
+  /* HUD */
+  #hud { align-items: flex-start; pointer-events: none; }
+  #hud .top { width: min(560px, 70vw); margin-top: max(18px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 10px; }
+  #hud .track { flex: 1; height: 14px; border-radius: 99px; background: rgba(0, 0, 0, 0.45); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25); overflow: hidden; }
+  #hud .fill { height: 100%; width: 0; background: linear-gradient(90deg, #5dff7a, #27e3ff); border-radius: 99px; box-shadow: 0 0 12px rgba(93, 255, 122, 0.7); }
+  #hud .pct { font-weight: 900; font-size: 16px; min-width: 46px; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); }
+  #hud .corner { pointer-events: auto; }
+  #practiceTag { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); font-weight: 900; color: #b48cff; letter-spacing: 2px; text-transform: uppercase; font-size: 13px; text-shadow: 0 2px 0 rgba(0,0,0,.6); }
+  #attempt { position: absolute; left: 50%; top: 26%; transform: translateX(-50%); font-family: 'Lilita One', sans-serif; font-size: clamp(34px, 6vw, 60px); color: #fff; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.45), 0 0 24px rgba(140, 110, 255, 0.6); transition: opacity 0.6s; pointer-events: none; white-space: nowrap; }
+
+  #newBest { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%) scale(0.6); opacity: 0; pointer-events: none; white-space: nowrap;
+    font-family: 'Lilita One', sans-serif; font-size: clamp(30px, 5.5vw, 54px); color: var(--gold);
+    text-shadow: 0 4px 0 #6b3a00, 0 0 28px rgba(255, 207, 74, 0.8); }
+  #newBest.show { animation: newbest 1.6s ease-out forwards; }
+  @keyframes newbest { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+    30% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -62%) scale(1); } }
+
+  /* garaje */
+  .garage-screen { align-items: flex-end; }
+  /* en pantallas anchas el panel va a la derecha y el modelo se ve a la izquierda */
+  @media (min-aspect-ratio: 5/4) { .garage-screen { align-items: center; justify-content: flex-end; } .garage-screen .garage { width: min(520px, 48vw); margin: 0 max(16px, 3vw) 0 0; } .garage-screen .designs { max-height: 46vh; } }
+  .garage { width: min(560px, 100%); margin-bottom: max(10px, env(safe-area-inset-bottom)); padding-top: 18px; }
+  .garage-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .garage-head h2 { margin: 0; text-align: left; }
+  .coin-count { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 20px; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { font: inherit; font-weight: 900; font-size: 14px; border: 0; border-radius: 10px; padding: 7px 12px; cursor: pointer; color: var(--muted); background: rgba(255, 255, 255, 0.08); }
+  .tabs button.on { background: var(--gold); color: #3a1a00; }
+  .designs { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; max-height: 27vh; overflow-y: auto; padding: 2px; }
+  .design .dot { width: 22px; height: 22px; border-radius: 7px; justify-self: center; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25); }
+  .design { font: inherit; border: 2px solid rgba(160, 140, 255, 0.3); border-radius: 14px; padding: 12px 8px; cursor: pointer; color: var(--text); background: rgba(255, 255, 255, 0.06); display: grid; gap: 4px; }
+  .design b { font-family: 'Lilita One', sans-serif; font-weight: 400; font-size: 17px; }
+  .design span { color: var(--muted); font-weight: 900; font-size: 13px; }
+  .design.on { border-color: var(--gold); box-shadow: 0 0 18px rgba(255, 207, 74, 0.35); }
+  .design.on span { color: var(--gold); }
+  .design.locked { opacity: 0.8; }
+  .design.look { border-color: #b48cff; box-shadow: 0 0 18px rgba(180, 140, 255, 0.4); opacity: 1; }
+  .design[data-poor] { opacity: 0.45; }
+  .garage-colors { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; font-weight: 800; flex-wrap: wrap; }
+  .garage-msg { min-height: 18px; margin: 8px 0 0; color: #ff8fb8; font-weight: 800; font-size: 14px; text-align: center; }
+
+  /* ajustes */
+  .settings { display: grid; gap: 14px; }
+  .setting { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 14px; font-weight: 800; }
+  .setting .seg { flex-wrap: wrap; justify-content: flex-end; }
+  .setting input[type=range] { width: 170px; accent-color: var(--gold); }
+  .seg { display: flex; background: rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 3px; }
+  .seg button { font: inherit; font-weight: 900; font-size: 14px; border: 0; background: none; color: var(--muted); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+  .seg button.on { background: var(--gold); color: #3a1a00; }
+  .swatches { display: flex; gap: 8px; }
+  .swatch { width: 30px; height: 30px; border-radius: 9px; border: 3px solid transparent; cursor: pointer; padding: 0; }
+  .swatch.on { border-color: #fff; box-shadow: 0 0 0 2px var(--gold); }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 4px; }
+  .stat { background: rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 10px; text-align: center; }
+  .stat b { display: block; font-family: 'Lilita One', sans-serif; font-weight: 400; font-size: 28px; }
+  .stat span { color: var(--muted); font-weight: 800; font-size: 13px; }
+  .hint { position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: rgba(244, 241, 255, 0.6); font-weight: 800; font-size: 13px; pointer-events: none; }
+  kbd { font: inherit; background: rgba(255, 255, 255, 0.14); border-radius: 5px; padding: 1px 6px; }
+  #loading { position: absolute; inset: 0; display: grid; place-items: center; background: #05040c; font-family: 'Lilita One', sans-serif; font-size: 28px; color: var(--muted); transition: opacity 0.5s; }
+  #loading.err { font-family: 'Nunito', sans-serif; font-size: 16px; padding: 24px; text-align: center; }
+  @media (max-width: 520px) {
+    .panel { padding: 20px 16px 18px; }
+    .arrow { width: 40px; height: 56px; }
+    .level-card .name { font-size: 30px; }
+    .setting input[type=range] { width: 120px; }
+  }
+</style>
+
+<div id="app">
+  <canvas id="view" tabindex="0" aria-label="Juego"></canvas>
+
+  <section class="screen" id="menu">
+    <div class="corner right">
+      <button class="icon-btn" id="settingsBtn" aria-label="Ajustes">⚙</button>
+    </div>
+    <div class="title">
+      <h1>Neon Dash<span>3D</span></h1>
+      <p>Salta al ritmo · física a 240 Hz</p>
+      <div class="menu-buttons">
+        <button class="btn big" id="playBtn">▶ Jugar</button>
+        <div class="row" style="margin-top:4px">
+          <button class="btn purple" id="garageBtn">★ Garaje</button>
+          <button class="btn orange" id="editorBtn">✎ Crear</button>
+        </div>
+      </div>
+    </div>
+    <div class="hint">Saltar: <kbd>Espacio</kbd> <kbd>↑</kbd> <kbd>W</kbd> o clic / toque · Pausa: <kbd>Esc</kbd> · Reiniciar: <kbd>R</kbd></div>
+  </section>
+
+  <section class="screen" id="levels" hidden>
+    <div class="corner left"><button class="icon-btn" id="levelsBack" aria-label="Volver">‹</button></div>
+    <div class="level-nav">
+      <button class="arrow" id="prevLevel" aria-label="Nivel anterior">‹</button>
+      <div class="panel level-card">
+        <div class="name" id="lvName"></div>
+        <div class="badges"><span class="badge" id="lvDiff"></span><span class="stars" id="lvStars"></span></div>
+        <div class="modes" id="lvModes"></div>
+        <div class="bars">
+          <div class="bar"><span>Normal</span><div class="track"><div class="fill" id="lvBest"></div></div><span id="lvBestTxt"></span></div>
+          <div class="bar practice"><span>Práctica</span><div class="track"><div class="fill" id="lvPrac"></div></div><span id="lvPracTxt"></span></div>
+        </div>
+        <div class="coins" id="lvCoins"></div>
+        <div class="row">
+          <button class="btn" id="startLevel">Jugar</button>
+          <button class="btn purple" id="startPractice">Práctica</button>
+        </div>
+        <div class="dots" id="lvDots"></div>
+      </div>
+      <button class="arrow" id="nextLevel" aria-label="Nivel siguiente">›</button>
+    </div>
+  </section>
+
+  <section class="screen" id="hud" hidden>
+    <div class="corner left"><button class="icon-btn" id="pauseBtn" aria-label="Pausa">❚❚</button></div>
+    <div class="top"><div class="track"><div class="fill" id="progress"></div></div><div class="pct" id="pct">0%</div></div>
+    <div id="practiceTag" hidden>Práctica · <kbd>Z</kbd> marca · <kbd>X</kbd> quita</div>
+    <div id="attempt"></div>
+    <div id="newBest"></div>
+  </section>
+
+  <!-- Editor de niveles: lo construye src/editor.js -->
+  <section class="screen" id="editor" hidden></section>
+
+  <section class="screen garage-screen" id="garage" hidden>
+    <div class="corner left"><button class="icon-btn" id="garageBack" aria-label="Volver">‹</button></div>
+    <div class="panel garage">
+      <div class="garage-head"><h2>Garaje</h2><span class="coin-count"><i class="coin-dot got"></i> <b id="garageCoins">0</b></span></div>
+      <div class="tabs" id="garageTabs"></div>
+      <div class="designs" id="garageList"></div>
+      <div class="garage-colors"><span>Colores</span><div class="swatches" id="garagePalettes"></div></div>
+      <p class="garage-msg" id="garageMsg"></p>
+    </div>
+  </section>
+
+  <section class="screen dim" id="pause" hidden>
+    <div class="panel">
+      <h2>Pausa</h2>
+      <div class="settings" data-settings></div>
+      <div class="row">
+        <button class="btn" id="resumeBtn">Seguir</button>
+        <button class="btn orange" id="restartBtn">Reiniciar</button>
+        <button class="btn ghost" id="quitBtn">Niveles</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen dim" id="settings" hidden>
+    <div class="panel">
+      <h2>Ajustes</h2>
+      <div class="settings" data-settings></div>
+      <div class="row"><button class="btn" id="settingsClose">Listo</button></div>
+    </div>
+  </section>
+
+  <section class="screen dim" id="complete" hidden>
+    <div class="panel">
+      <h2 id="doneTitle">¡Nivel completado!</h2>
+      <div class="stats">
+        <div class="stat"><b id="doneAttempts">1</b><span>Intentos</span></div>
+        <div class="stat"><b id="doneJumps">0</b><span>Saltos</span></div>
+        <div class="stat"><b id="doneTime">0:00</b><span>Tiempo</span></div>
+        <div class="stat"><b id="doneCoins">0/0</b><span>Monedas</span></div>
+      </div>
+      <div class="row">
+        <button class="btn" id="doneNext">Siguiente</button>
+        <button class="btn orange" id="doneRetry">Repetir</button>
+        <button class="btn ghost" id="doneLevels">Niveles</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="loading">Cargando…</div>
+</div>
+<script>
+  // Si el módulo 3D no arranca (sin conexión para descargar Three.js, o un error), se avisa en vez de quedarse en negro.
+  setTimeout(function () {
+    var el = document.getElementById('loading');
+    if (el && el.style.opacity !== '0') { el.className = 'err'; el.textContent = 'No se pudo cargar el motor 3D. Hace falta conexión a internet para descargar Three.js.'; }
+  }, 12000);
+</script>
+
+<script data-worker src="sim.js"></script>
+<script src="levels.js"></script>
+<script data-worker src="solver.js"></script>
+<script src="audio.js"></script>
+<script src="demos.js"></script>
+<script src="models.js"></script>
+<script type="module" src="world.js+game.js"></script>
+<script type="module" src="editor.js"></script>
