@@ -142,8 +142,38 @@
   .garage-colors { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; font-weight: 800; flex-wrap: wrap; }
   .garage-msg { min-height: 18px; margin: 8px 0 0; color: #ff8fb8; font-weight: 800; font-size: 14px; text-align: center; }
 
+  /* premios, cartera y avisos */
+  .wallet { display: flex; gap: 12px; font-weight: 900; font-size: 15px; background: rgba(10, 8, 26, 0.7); border-radius: 12px; padding: 7px 12px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.1); }
+  .wallet span:nth-child(1) { color: var(--gold); } .wallet span:nth-child(2) { color: #7af0ff; } .wallet span:nth-child(3) { color: #b48cff; } .wallet span:nth-child(4) { color: #ffd23a; }
+  .rewards { width: min(620px, 100%); }
+  .rw-body { max-height: 58vh; overflow-y: auto; padding: 2px 4px 2px 0; }
+  .rw-body h3 { font-family: 'Lilita One', sans-serif; font-weight: 400; margin: 12px 0 8px; font-size: 20px; }
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .shop-item { font: inherit; border: 2px solid rgba(160, 140, 255, 0.3); border-radius: 12px; padding: 10px 6px; cursor: pointer; color: var(--text); background: rgba(255, 255, 255, 0.06); display: grid; gap: 4px; justify-items: center; }
+  .shop-item b { font-weight: 900; font-size: 15px; } .shop-item span { color: var(--muted); font-weight: 900; font-size: 13px; }
+  .shop-item.on { border-color: var(--gold); } .shop-item.on span { color: var(--gold); } .shop-item.buy span { color: #b48cff; }
+  .shop-item .dot, .design .dot { width: 18px; height: 18px; border-radius: 50%; display: block; }
+  .chests { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .chest { background: rgba(255, 255, 255, 0.06); border-radius: 14px; padding: 14px; display: grid; gap: 6px; justify-items: center; text-align: center; }
+  .chest.ready { box-shadow: 0 0 0 2px var(--gold), 0 0 22px rgba(255, 207, 74, 0.35); }
+  .chest-ico { font-size: 44px; } .chest span { color: var(--muted); font-weight: 800; font-size: 13px; } .chest .wait { color: #b48cff; }
+  .quest, .ach { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .quest .track { height: 10px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); overflow: hidden; margin: 6px 0 2px; }
+  .quest .fill { height: 100%; background: linear-gradient(90deg, #27e3ff, #b48cff); }
+  .quest span, .ach span { color: var(--muted); font-weight: 800; font-size: 13px; } .quest.done b { color: #9dffb0; } .claimed { color: #9dffb0 !important; }
+  .ach { grid-template-columns: auto 1fr auto; } .ach .ico { font-size: 22px; } .ach b { display: block; } .ach:not(.got) { opacity: 0.6; }
+  .reward { color: #7af0ff !important; } .rw-note { color: var(--muted); font-weight: 800; margin: 0 0 10px; }
+  .song-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; font-weight: 800; color: var(--muted); flex-wrap: wrap; }
+  .song-row b { color: var(--text); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+  .stars.earned { text-shadow: 0 0 12px rgba(255, 207, 74, 0.9); }
+  .done-reward { text-align: center; color: #7af0ff; font-weight: 900; font-size: 18px; min-height: 22px; margin: 8px 0 0; }
+  #toast { position: absolute; left: 50%; bottom: 70px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s;
+    background: rgba(14, 11, 34, 0.94); border: 2px solid rgba(255, 207, 74, 0.6); border-radius: 14px; padding: 10px 16px; font-weight: 900; z-index: 50; max-width: 90vw; text-align: center; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
   /* ajustes */
   .settings { display: grid; gap: 14px; }
+  .credit { margin: 6px 0 0; font-size: 12px; opacity: 0.6; text-align: center; font-weight: 600; }
   .setting { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 14px; font-weight: 800; }
   .setting .seg { flex-wrap: wrap; justify-content: flex-end; }
   .setting input[type=range] { width: 170px; accent-color: var(--gold); }
@@ -174,6 +204,7 @@
   <canvas id="view" tabindex="0" aria-label="Juego"></canvas>
 
   <section class="screen" id="menu">
+    <div class="corner left"><div class="wallet" data-wallet></div></div>
     <div class="corner right">
       <button class="icon-btn" id="settingsBtn" aria-label="Ajustes">⚙</button>
     </div>
@@ -185,6 +216,7 @@
         <div class="row" style="margin-top:4px">
           <button class="btn purple" id="garageBtn">★ Garaje</button>
           <button class="btn orange" id="editorBtn">✎ Crear</button>
+          <button class="btn" id="rewardsBtn">🎁 Premios</button>
         </div>
       </div>
     </div>
@@ -204,6 +236,7 @@
           <div class="bar practice"><span>Práctica</span><div class="track"><div class="fill" id="lvPrac"></div></div><span id="lvPracTxt"></span></div>
         </div>
         <div class="coins" id="lvCoins"></div>
+        <div class="song-row"><span>Música: <b id="lvSong">Original</b></span><button class="btn ghost small" id="lvSongBtn">Cambiar</button><button class="btn ghost small" id="lvSongReset" hidden>Original</button><input type="file" id="lvSongFile" accept="audio/*" hidden></div>
         <div class="row">
           <button class="btn" id="startLevel">Jugar</button>
           <button class="btn purple" id="startPractice">Práctica</button>
@@ -236,6 +269,15 @@
     </div>
   </section>
 
+  <section class="screen dim" id="rewards" hidden>
+    <div class="corner left"><button class="icon-btn" id="rewardsBack" aria-label="Volver">‹</button></div>
+    <div class="panel rewards">
+      <div class="garage-head"><h2>Premios</h2><div class="wallet" data-wallet></div></div>
+      <div class="tabs" id="rwTabs"></div>
+      <div class="rw-body" id="rwBody"></div>
+    </div>
+  </section>
+
   <section class="screen dim" id="pause" hidden>
     <div class="panel">
       <h2>Pausa</h2>
@@ -265,6 +307,7 @@
         <div class="stat"><b id="doneTime">0:00</b><span>Tiempo</span></div>
         <div class="stat"><b id="doneCoins">0/0</b><span>Monedas</span></div>
       </div>
+      <p class="done-reward" id="doneReward"></p>
       <div class="row">
         <button class="btn" id="doneNext">Siguiente</button>
         <button class="btn orange" id="doneRetry">Repetir</button>
@@ -273,6 +316,7 @@
     </div>
   </section>
 
+  <div id="toast"></div>
   <div id="loading">Cargando…</div>
 </div>
 <script>
@@ -284,10 +328,11 @@
 </script>
 
 <script data-worker src="sim.js"></script>
-<script src="levels.js"></script>
+<script src="tracks.js"></script>
+<script src="niveles/primer-pulso.js+niveles/orbita.js+niveles/fase-doble.js+niveles/ladera.js+niveles/espejo.js+niveles/abismo.js+niveles/bano-de-sangre.js+niveles/telarana.js+niveles/engranaje.js+niveles/vertigo.js+niveles/zigzag.js+niveles/apex.js+levels.js"></script>
 <script data-worker src="solver.js"></script>
 <script src="audio.js"></script>
 <script src="demos.js"></script>
 <script src="models.js"></script>
-<script type="module" src="world.js+game.js"></script>
+<script type="module" src="world.js+game.js+meta.js"></script>
 <script type="module" src="editor.js"></script>

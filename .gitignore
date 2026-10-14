@@ -3,3 +3,5 @@ node_modules/
 dist/
 *.blend1
 __pycache__/
+# WAV originales de Flow Music (pesan ~500 MB; en el juego van recortados en src/music/*.mp3)
+/music/

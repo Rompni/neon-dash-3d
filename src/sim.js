@@ -93,9 +93,217 @@
     return by0 < Math.max(slopeY(o, xa), slopeY(o, xb)) - 0.01;
   }
 
+  // ------------------------------------------------------- triggers de grupo
+  /*
+   * Grupos: cualquier objeto (o decorado) puede llevar `group: n` o `groups: [n, m]` (enteros).
+   * Triggers en def.triggers, ordenados por x (bloques). Cada uno se activa cuando la x del jugador pasa por
+   * él y su efecto es una función pura de esa x: no hay estado de triggers en la partida (el bot y keyOf no
+   * cambian). Los que afectan a la física (move, rotate, toggle, follow) mueven las cajas de choque.
+   *   move:      { x, group, dx, dy (bloques), dur (bloques de avance), ease }
+   *   rotate:    { x, group, deg (+ = horario), dur, ease, cx?, cy? (centro en bloques; si no, el del grupo) }
+   *   alpha:     { x, group, alpha, dur, ease }   (sólo visual; 'fade' es el nombre antiguo)
+   *   toggle:    { x, group, on: true | false }   (apagado: no choca y no se dibuja)
+   *   spawn:     { x, target, delay (bloques) }  dispara los triggers con spawnOnly: true cuyo `id` es target
+   *              (o, si no tienen id, cuyo `group` es target) como si estuvieran en x + delay.
+   *   follow:    { x, group, follower, dur, kx, ky }  el grupo follower copia el desplazamiento (move) de group
+   *              multiplicado por kx, ky durante dur bloques (dur 0 = hasta el final).
+   *   camzoom:   { x, zoom, dur, ease }   camoffset: { x, dx, dy, dur, ease }   camrotate: { x, deg, dur, ease }
+   *              (cámara, sólo visual; zoom 2 = el doble de cerca)
+   * Aproximación del giro en la física: el centro de cada objeto gira exacto alrededor del centro del grupo;
+   * su caja gira al múltiplo de 90° más cercano (exacto para giros de 90°, 180°, 270°). Las sierras son
+   * círculos, así que con ellas el giro es exacto con cualquier ángulo.
+   */
+  const EASE = {
+    linear: (t) => t,
+    in: (t) => t * t,
+    out: (t) => 1 - (1 - t) * (1 - t),
+    inout: (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
+    bounce: (t) => { const n = 7.5625, d = 2.75; if (t < 1 / d) return n * t * t; if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75; if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375; return n * (t -= 2.625 / d) * t + 0.984375; },
+  };
+  const easeOf = (name) => EASE[name] || EASE.inout;
+  // Triggers que cambian dónde chocan los objetos de su grupo.
+  const PHYS_KINDS = { move: 'group', rotate: 'group', toggle: 'group', follow: 'follower' };
+
+  function groupsOf(o) {
+    let g = null;
+    if (Array.isArray(o.groups)) for (const v of o.groups) if (Number.isInteger(v)) (g || (g = [])).push(v);
+    if (Number.isInteger(o.group) && !(g && g.includes(o.group))) (g || (g = [])).unshift(o.group);
+    return g;
+  }
+
+  // Lista efectiva de triggers: los normales en su x y los lanzados por spawn en x + delay (en cadena, hasta
+  // 8 niveles). Devuelve [{ tr, x (u) }] ordenada por x.
+  function expandTriggers(def) {
+    const src = ((def && def.triggers) || []).filter((t) => t && typeof t.x === 'number' && isFinite(t.x));
+    const out = [];
+    const match = (t, target) => t.id != null ? t.id === target : t.group === target;
+    const add = (tr, x, depth) => {
+      out.push({ tr, x });
+      if (tr.kind !== 'spawn' || depth >= 8 || tr.target == null) return;
+      const d = (typeof tr.delay === 'number' && isFinite(tr.delay) ? Math.max(0, tr.delay) : 0) * BLOCK;
+      for (const t2 of src) if (t2.spawnOnly && t2 !== tr && match(t2, tr.target)) add(t2, x + d, depth + 1);
+    };
+    for (const tr of src) if (!tr.spawnOnly) add(tr, tr.x * BLOCK, 0);
+    out.sort((a, b) => a.x - b.x); // estable: a igual x, el orden del nivel
+    return out;
+  }
+
+  // Desplazamiento (u) de un grupo sólo por sus triggers move, en la x dada.
+  function moveOffset(T, g, x) {
+    let dx = 0, dy = 0;
+    for (const { tr, x: tx } of T) {
+      if (tx > x) break;
+      if (tr.kind !== 'move' || tr.group !== g) continue;
+      const dur = (tr.dur || 0) * BLOCK;
+      const e = easeOf(tr.ease)(dur > 0 ? Math.min(1, (x - tx) / dur) : 1);
+      dx += (tr.dx || 0) * BLOCK * e; dy += (tr.dy || 0) * BLOCK * e;
+    }
+    return [dx, dy];
+  }
+
+  function computeGroupState(L, T, x) {
+    const out = { off: {}, rot: {}, center: {}, alpha: {}, hidden: {}, cam: { zoom: 1, dx: 0, dy: 0, deg: 0 } };
+    const cam = out.cam;
+    for (const { tr, x: tx } of T) {
+      if (tx > x) break;
+      const dur = (tr.dur || 0) * BLOCK;
+      const p = dur > 0 ? Math.min(1, (x - tx) / dur) : 1;
+      const e = easeOf(tr.ease)(p);
+      const g = tr.group;
+      switch (tr.kind) {
+        case 'move': {
+          const o = out.off[g] || (out.off[g] = [0, 0]);
+          o[0] += (tr.dx || 0) * BLOCK * e; o[1] += (tr.dy || 0) * BLOCK * e;
+          break;
+        }
+        case 'rotate':
+          out.rot[g] = (out.rot[g] || 0) + (tr.deg || 0) * e;
+          if (typeof tr.cx === 'number' && typeof tr.cy === 'number') out.center[g] = [tr.cx * BLOCK, tr.cy * BLOCK];
+          break;
+        case 'alpha': case 'fade': {
+          const from = out.alpha[g] != null ? out.alpha[g] : 1;
+          const to = typeof tr.alpha === 'number' ? tr.alpha : 1;
+          out.alpha[g] = from + (to - from) * e;
+          break;
+        }
+        case 'toggle':
+          if (tr.on === false) out.hidden[g] = true; else delete out.hidden[g];
+          break;
+        case 'follow': {
+          if (tr.follower == null) break;
+          const xe = dur > 0 ? Math.min(x, tx + dur) : x;
+          const a = moveOffset(T, g, tx), b = moveOffset(T, g, xe);
+          const kx = typeof tr.kx === 'number' ? tr.kx : 1, ky = typeof tr.ky === 'number' ? tr.ky : 1;
+          const o = out.off[tr.follower] || (out.off[tr.follower] = [0, 0]);
+          o[0] += (b[0] - a[0]) * kx; o[1] += (b[1] - a[1]) * ky;
+          break;
+        }
+        case 'camzoom': { const to = tr.zoom > 0 ? tr.zoom : 1; cam.zoom += (to - cam.zoom) * e; break; }
+        case 'camoffset':
+          cam.dx += ((tr.dx || 0) * BLOCK - cam.dx) * e;
+          cam.dy += ((tr.dy || 0) * BLOCK - cam.dy) * e;
+          break;
+        case 'camrotate': cam.deg += ((tr.deg || 0) - cam.deg) * e; break;
+      }
+    }
+    for (const g in out.rot) if (!out.center[g]) out.center[g] = (L.gcenter && L.gcenter[g]) || [0, 0];
+    return out;
+  }
+
+  /*
+   * Estado de los grupos para la x del jugador (u). Función pura de x (con una caché de dos entradas):
+   * { off: {g: [dx, dy] u}, rot: {g: grados, + = horario}, center: {g: [cx, cy] u}, alpha: {g: 0..1},
+   *   hidden: {g: true}, cam: { zoom, dx, dy (u), deg } }. No hay que modificar el resultado.
+   */
+  function groupState(L, x) {
+    const T = L.trigs || (L.trigs = expandTriggers(L.def));
+    const c = L._gsc || (L._gsc = [null, null]);
+    if (c[0] && c[0].x === x) return c[0].v;
+    if (c[1] && c[1].x === x) return c[1].v;
+    const v = computeGroupState(L, T, x);
+    c[1] = c[0]; c[0] = { x, v };
+    return v;
+  }
+
+  // Transformación de un objeto con los grupos `grp` (lista de enteros) en el estado gs: desplazamiento,
+  // giro (el del primer grupo que gire) y centro, apagado y transparencia. La usan la física y el dibujo.
+  function groupXform(gs, grp) {
+    let dx = 0, dy = 0, rot = 0, c = null, hidden = false, alpha = 1;
+    if (grp) for (const g of grp) {
+      const f = gs.off[g];
+      if (f) { dx += f[0]; dy += f[1]; }
+      if (gs.hidden[g]) hidden = true;
+      if (gs.alpha[g] != null) alpha *= gs.alpha[g];
+      if (!c && gs.rot[g]) { rot = gs.rot[g]; c = gs.center[g]; }
+    }
+    return { dx, dy, rot, c, hidden, alpha };
+  }
+
+  // Esquina del ángulo recto de una rampa, en orden horario: 0 abajo-izq, 1 arriba-izq, 2 arriba-der, 3 abajo-der.
+  const SLOPE_CORNER = (dir, ceil) => (ceil ? (dir > 0 ? 1 : 2) : (dir > 0 ? 3 : 0));
+
+  // Coloca los objetos de grupos con triggers físicos según la x. prev = true escribe la posición anterior
+  // (q0, q1, qx0, qx1, qoff) que usa el arrastre de plataformas.
+  function placeDyn(L, x, prev) {
+    if (prev ? L._dynPX === x : L._dynX === x) return;
+    if (prev) L._dynPX = x; else L._dynX = x;
+    const gs = groupState(L, x);
+    for (const o of L.dyn) {
+      const t = groupXform(gs, o.grp);
+      let px = o.bpx, py = o.bpy, k = 0;
+      if (t.rot) {
+        const a = -t.rot * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+        const rx = px - t.c[0], ry = py - t.c[1];
+        px = t.c[0] + rx * ca - ry * sa;
+        py = t.c[1] + rx * sa + ry * ca;
+        k = ((Math.round(t.rot / 90) % 4) + 4) % 4;
+      }
+      px += t.dx; py += t.dy;
+      let a0 = o.lb[0], b0 = o.lb[1], a1 = o.lb[2], b1 = o.lb[3];
+      for (let i = 0; i < k; i++) { const n0 = b0, n1 = -a1, n2 = b1, n3 = -a0; a0 = n0; b0 = n1; a1 = n2; b1 = n3; } // 90° horario
+      if (prev) { o.qx0 = px + a0; o.q0 = py + b0; o.qx1 = px + a1; o.q1 = py + b1; o.qoff = t.hidden; continue; }
+      o.off = t.hidden;
+      setBox(o, px + a0, py + b0, px + a1, py + b1);
+      if (o.circle) { o.cx = px; o.cy = py; }
+      if (o.slope) {
+        const cn = (SLOPE_CORNER(o.bdir, o.bceil) + k) % 4;
+        o.dir = cn === 3 || cn === 1 ? 1 : -1;
+        o.ceil = cn === 1 || cn === 2;
+        o.angle = -o.dir * Math.atan2(o.y1 - o.y0, o.x1 - o.x0) * 180 / Math.PI;
+      }
+    }
+  }
+
+  // Plataformas en movimiento: si el jugador estaba apoyado en un sólido de un grupo, se mueve con él en
+  // vertical (en horizontal el jugador siempre avanza a su velocidad, como en el original).
+  function carry(L, s, wasGrounded) {
+    if (!wasGrounded) return;
+    placeDyn(L, s.px, true);
+    const half = halfOf(s), f = s.flip, feet = s.py - f * half;
+    let best = 0, found = false;
+    for (const o of L.dyn) {
+      if (!o.solid || o.off || o.qoff) continue;
+      if (!(o.qx0 < s.px + half && o.qx1 > s.px - half)) continue;
+      const was = f > 0 ? o.q1 : o.q0;
+      if (Math.abs(feet - was) > 0.5) continue;
+      const d = (f > 0 ? o.y1 : o.y0) - was;
+      if (!found || d * f > best * f) { best = d; found = true; }
+    }
+    if (found) s.y += best;
+  }
+
   function compileLevel(def) {
     const objs = [];
     const cols = Object.create(null);
+    const dyn = [];
+    // grupos con triggers que cambian la física: sus objetos van a la lista dinámica, no a las columnas
+    const physG = new Set();
+    for (const tr of def.triggers || []) if (tr && PHYS_KINDS[tr.kind] && tr[PHYS_KINDS[tr.kind]] != null) physG.add(tr[PHYS_KINDS[tr.kind]]);
+    const gbox = Object.create(null);
+    const growBox = (g, x0, y0, x1, y1) => {
+      const b = gbox[g] || (gbox[g] = [Infinity, Infinity, -Infinity, -Infinity]);
+      b[0] = Math.min(b[0], x0); b[1] = Math.min(b[1], y0); b[2] = Math.max(b[2], x1); b[3] = Math.max(b[3], y1);
+    };
     for (const raw of def.objects) {
       const o = Object.assign({}, raw);
       o.id = objs.length;
@@ -164,17 +372,44 @@
           o.deco = true;
       }
       objs.push(o);
+      const grp = groupsOf(raw);
+      if (grp) {
+        o.grp = grp;
+        // caja visible (para el centro del grupo) y pivote del objeto (centro de su caja o de su celda)
+        const vb = o.solid || o.slope ? [o.x0, o.y0, o.x1, o.y1] : [X, Y, X + BLOCK, Y + BLOCK];
+        for (const g of grp) growBox(g, vb[0], vb[1], vb[2], vb[3]);
+        if (!o.deco && grp.some((g) => physG.has(g))) {
+          o.dyn = true;
+          o.bpx = (vb[0] + vb[2]) / 2; o.bpy = (vb[1] + vb[3]) / 2;
+          o.lb = [o.x0 - o.bpx, o.y0 - o.bpy, o.x1 - o.bpx, o.y1 - o.bpy];
+          o.base = { x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1, cx: o.cx, cy: o.cy, dir: o.dir, ceil: o.ceil, angle: o.angle };
+          if (o.slope) { o.bdir = o.dir; o.bceil = !!o.ceil; }
+          o.off = false;
+          dyn.push(o);
+          continue;
+        }
+      }
       if (o.deco) continue;
       for (let c = Math.floor(o.x0 / BLOCK); c <= Math.floor(o.x1 / BLOCK); c++) {
         (cols[c] || (cols[c] = [])).push(o.id);
       }
     }
+    for (const d of def.decos || []) {
+      const grp = groupsOf(d);
+      if (grp) for (const g of grp) growBox(g, d.x * BLOCK, d.y * BLOCK, d.x * BLOCK, d.y * BLOCK);
+    }
+    const gcenter = Object.create(null);
+    for (const g in gbox) gcenter[g] = [(gbox[g][0] + gbox[g][2]) / 2, (gbox[g][1] + gbox[g][3]) / 2];
     return {
       id: def.id,
       name: def.name,
       def,
       objs,
       cols,
+      dyn,
+      gcenter,
+      trigs: expandTriggers(def),
+      _dynX: NaN, _dynPX: NaN,
       endX: def.length * BLOCK,
       startMode: def.startMode || 'cube',
       startSpeed: def.startSpeed || 1,
@@ -195,6 +430,15 @@
       for (let i = 0; i < list.length; i++) {
         const o = L.objs[list[i]];
         if (o._q !== stamp) { o._q = stamp; out.push(o); }
+      }
+    }
+    // objetos de grupos con triggers (ya colocados con placeDyn para la x actual): mismas columnas
+    const dyn = L.dyn;
+    if (dyn && dyn.length) {
+      const c0 = Math.floor(x0 / BLOCK);
+      for (let i = 0; i < dyn.length; i++) {
+        const o = dyn[i];
+        if (!o.off && Math.floor(o.x0 / BLOCK) <= c1 && Math.floor(o.x1 / BLOCK) >= c0) out.push(o);
       }
     }
     return out;
@@ -266,11 +510,14 @@
     const from = s.y + dir * half;
     let best = dir > 0 ? s.hi : s.lo;
     const seen = Object.create(null);
-    for (let c = Math.floor(x0 / BLOCK), c1 = Math.floor(x1 / BLOCK); c <= c1; c++) {
-      const list = L.cols[c];
+    const dyn = L.dyn && L.dyn.length ? L.dyn : null;
+    if (dyn) placeDyn(L, s.x);
+    for (let c = Math.floor(x0 / BLOCK), c1 = Math.floor(x1 / BLOCK); c <= c1 + (dyn ? 1 : 0); c++) {
+      const list = c <= c1 ? L.cols[c] : dyn; // la vuelta extra recorre los objetos dinámicos
       if (!list) continue;
       for (let i = 0; i < list.length; i++) {
-        const o = L.objs[list[i]];
+        const o = c <= c1 ? L.objs[list[i]] : list[i];
+        if (o.off) continue;
         if (seen[o.id]) continue;
         seen[o.id] = 1;
         if (!o.solid && !o.slope) continue;
@@ -648,6 +895,12 @@
     s.onCeil = false;
     s.slope = null;
 
+    // 0) Objetos de grupos con triggers: se colocan para esta x y arrastran al jugador que iba encima.
+    if (L.dyn && L.dyn.length) {
+      placeDyn(L, s.x);
+      carry(L, s, wasGrounded);
+    }
+
     // 1) Portales primero: pueden cambiar modo, tamaño, gravedad y límites.
     let near = query(L, s.x - 40, s.x + 40);
     {
@@ -884,6 +1137,7 @@
     TPS, DT, YDT, BLOCK, SPEEDS, P, FLYING, GROUND,
     compileLevel, createState, cloneState, step, press, release, query, hit,
     slopeY, slopeHit, halfOf, innerOf, findSurface,
+    EASE, groupsOf, expandTriggers, groupState, groupXform, placeDyn,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

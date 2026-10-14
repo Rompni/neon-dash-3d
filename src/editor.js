@@ -13,6 +13,12 @@ const MODE_NAME = { cube: 'Cubo', ship: 'Nave', ball: 'Bola', ufo: 'Ovni', wave:
 const SPEEDS = [0.5, 1, 2, 3, 4];
 const SONGS = [['pulso', 'Pulso (electro-pop)'], ['orbita', 'Órbita (synthwave)'], ['fase', 'Fase (drum & bass)'], ['ladera', 'Ladera (chiptune)'], ['espejo', 'Espejo (electro oscuro)'], ['abismo', 'Abismo (duro)'], ['sangre', 'Baño de Sangre (metal electrónico)']];
 const SONG_BPM = { pulso: 155.79, orbita: 150, fase: 170, ladera: 140, espejo: 160, abismo: 175, sangre: 186 };
+// canciones reales (MP3, tracks.js): van primero en la lista
+if (window.Tracks) {
+  const real = Object.entries(Tracks.TRACKS).filter(([, t]) => !t.loop).map(([id, t]) => ['track:' + id, `${t.name} (${t.bpm} BPM)`]);
+  for (const [id] of real) SONG_BPM[id] = Tracks.TRACKS[id.slice(6)].bpm;
+  SONGS.unshift(...real);
+}
 const PAD_KINDS = ['yellow', 'pink', 'red', 'blue'];
 const ORB_KINDS = ['yellow', 'pink', 'red', 'blue', 'green', 'black'];
 const KIND_NAME = { yellow: 'Amarillo', pink: 'Rosa', red: 'Rojo', blue: 'Azul', green: 'Verde', black: 'Negro' };
@@ -22,7 +28,37 @@ const DECO_KINDS = [['glow', 'Brillo'], ['pillar', 'Pilar'], ['ring', 'Aro'], ['
 const EXTRA_COLOR = { robot: '#c8ff3b', spider: '#b48cff', swing: '#ffd23a', dual: '#ff7a3d', single: '#7ad9ff' };
 
 // ------------------------------------------------------------ paleta
-const CATS = [['bloques', 'Bloques'], ['peligros', 'Peligros'], ['saltos', 'Saltos'], ['portales', 'Portales'], ['extra', 'Extra']];
+const CATS = [['bloques', 'Bloques'], ['peligros', 'Peligros'], ['saltos', 'Saltos'], ['portales', 'Portales'], ['extra', 'Extra'], ['triggers', 'Triggers']];
+// Triggers (ver sim.js): se colocan como marcas verticales en su x; `y` sólo sirve para dibujar la marca.
+const EASES = [['inout', 'Suave'], ['linear', 'Lineal'], ['in', 'Acelera'], ['out', 'Frena'], ['bounce', 'Rebote']];
+const TRIG = {
+  move: { name: 'Mover grupo', icon: '⇄', color: '#3bc8ff', tpl: { group: 1, dx: 2, dy: 0, dur: 4, ease: 'inout' } },
+  rotate: { name: 'Girar grupo', icon: '⟳', color: '#b48cff', tpl: { group: 1, deg: 90, dur: 4, ease: 'inout' } },
+  alpha: { name: 'Transparencia', icon: '◐', color: '#cfd6ff', tpl: { group: 1, alpha: 0, dur: 2 } },
+  toggle: { name: 'Encender/apagar', icon: '⏻', color: '#7ee83a', tpl: { group: 1, on: false } },
+  spawn: { name: 'Lanzar (spawn)', icon: '✦', color: '#ffd23a', tpl: { target: 1, delay: 4 } },
+  follow: { name: 'Seguir grupo', icon: '⇉', color: '#ff7a3d', tpl: { group: 1, follower: 2, dur: 8, kx: 1, ky: 1 } },
+  camzoom: { name: 'Cámara: zoom', icon: '⊕', color: '#ff5a8a', tpl: { zoom: 1.4, dur: 4, ease: 'inout' } },
+  camoffset: { name: 'Cámara: desplazar', icon: '✥', color: '#ff5a8a', tpl: { dx: 0, dy: 2, dur: 4, ease: 'inout' } },
+  camrotate: { name: 'Cámara: girar', icon: '↻', color: '#ff5a8a', tpl: { deg: 8, dur: 4, ease: 'inout' } },
+  pulse: { name: 'Destello', icon: '✺', color: '#ffffff', tpl: { color: '#ffffff', dur: 4 } },
+  shake: { name: 'Sacudida', icon: '≋', color: '#ffb13b', tpl: { power: 4, dur: 3 } },
+};
+// Campos editables de cada trigger: [campo, etiqueta, tipo, mín, máx, paso]
+const TRIG_FIELDS = {
+  move: [['group', 'Grupo', 'int', 1, 999], ['dx', 'Mover x (bloques)', 'num', -200, 200, 0.5], ['dy', 'Mover y (bloques)', 'num', -60, 60, 0.5], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease']],
+  rotate: [['group', 'Grupo', 'int', 1, 999], ['deg', 'Grados (+ horario)', 'num', -3600, 3600, 15], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease'], ['center', 'Centro propio', 'center']],
+  alpha: [['group', 'Grupo', 'int', 1, 999], ['alpha', 'Opacidad (0-1)', 'num', 0, 1, 0.1], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5]],
+  toggle: [['group', 'Grupo', 'int', 1, 999], ['on', 'Encendido', 'bool']],
+  spawn: [['target', 'Objetivo (id o grupo)', 'target'], ['delay', 'Retraso (bloques)', 'num', 0, 400, 0.5]],
+  follow: [['group', 'Grupo que manda', 'int', 1, 999], ['follower', 'Grupo que sigue', 'int', 1, 999], ['kx', 'Factor x', 'num', -10, 10, 0.1], ['ky', 'Factor y', 'num', -10, 10, 0.1], ['dur', 'Duración (0 = siempre)', 'num', 0, 2000, 0.5]],
+  camzoom: [['zoom', 'Zoom', 'num', 0.3, 4, 0.1], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease']],
+  camoffset: [['dx', 'Desplazar x (bloques)', 'num', -30, 30, 0.5], ['dy', 'Desplazar y (bloques)', 'num', -30, 30, 0.5], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease']],
+  camrotate: [['deg', 'Grados', 'num', -180, 180, 1], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease']],
+  pulse: [['color', 'Color', 'color'], ['dur', 'Duración (bloques)', 'num', 0, 40, 0.5]],
+  shake: [['power', 'Fuerza', 'num', 0, 20, 0.5], ['dur', 'Duración (bloques)', 'num', 0, 40, 0.5]],
+};
+const TRIG_ID = /^[A-Za-z0-9_-]{1,20}$/;
 const ITEMS = [
   { id: 'block', cat: 'bloques', name: 'Bloque', tpl: { t: 'block', w: 1, h: 1 } },
   { id: 'slab', cat: 'bloques', name: 'Losa', tpl: { t: 'block', w: 1, h: 0.5 } },
@@ -46,6 +82,7 @@ ITEMS.push(
   { id: 'color', cat: 'extra', name: 'Cambio de color', special: 'color' },
 );
 for (const [k, n] of DECO_KINDS) ITEMS.push({ id: 'd_' + k, cat: 'extra', name: 'Decorado: ' + n.toLowerCase(), deco: { kind: k, color: '#ffffff' } });
+for (const k of Object.keys(TRIG)) ITEMS.push({ id: 't_' + k, cat: 'triggers', name: 'Trigger: ' + TRIG[k].name.toLowerCase(), trig: Object.assign({ kind: k }, TRIG[k].tpl) });
 const ITEM = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 const num = (v, a, b) => typeof v === 'number' && isFinite(v) && v >= a && v <= b;
 
@@ -74,7 +111,7 @@ function boot() {
   function newLevel() {
     return {
       id: uid(), name: 'Mi nivel ' + (levels.length + 1), song: 'pulso', bpm: SONG_BPM.pulso,
-      startMode: 'cube', startSpeed: 1, length: 0, objects: [], decos: [],
+      startMode: 'cube', startSpeed: 1, length: 0, objects: [], decos: [], triggers: [],
       colors: [{ x: 0, bg: '#3d6bff', ground: '#2a3fb0', line: '#ffffff', obj: '#ff9f3b' }],
       created: Date.now(), updated: Date.now(),
     };
@@ -83,17 +120,20 @@ function boot() {
     let max = 20;
     for (const o of lv.objects) max = Math.max(max, o.x + (o.w || 1));
     for (const d of lv.decos || []) max = Math.max(max, d.x + (d.w || 1));
+    for (const t of lv.triggers || []) max = Math.max(max, t.x + 1);
     return Math.ceil(max + 12);
   }
   function lengthOf(lv) { return lv.length > 0 ? Math.max(lv.length, 10) : autoLength(lv); }
   function toDef(lv) {
     return {
-      id: lv.id, name: lv.name, song: lv.song, bpm: lv.bpm, difficulty: 'Mío', stars: 0, theme: 'original',
+      id: lv.id, name: lv.name, song: lv.song, bpm: lv.bpm, difficulty: 'Mío', stars: 0, theme: 'original', theme3d: lv.theme3d || 'ciudad',
       startMode: lv.startMode, startSpeed: lv.startSpeed,
       objects: lv.objects.map((o) => Object.assign({}, o)),
       decos: (lv.decos || []).map((d) => Object.assign({}, d)),
       colors: lv.colors.map((c) => Object.assign({}, c)).sort((a, b) => a.x - b.x),
-      hints: [], triggers: [], length: lengthOf(lv),
+      hints: [], length: lengthOf(lv),
+      // triggers ordenados por x; `y` es sólo la altura de la marca en el editor
+      triggers: (lv.triggers || []).map((t) => { const c = Object.assign({}, t); delete c.y; return c; }).sort((a, b) => a.x - b.x),
     };
   }
 
@@ -107,7 +147,7 @@ function boot() {
     drag: null, pointers: new Map(), pinch: null, saveTimer: 0, spaceHeld: false,
     listT: 0,
   };
-  const UNDO_FIELDS = ['objects', 'decos', 'colors', 'song', 'bpm', 'startMode', 'startSpeed', 'length', 'name'];
+  const UNDO_FIELDS = ['objects', 'decos', 'triggers', 'colors','song', 'bpm', 'startMode', 'startSpeed', 'length', 'name'];
   function snapshot() { return JSON.stringify(Object.fromEntries(UNDO_FIELDS.map((f) => [f, ed.lv[f]]))); }
   function pushUndo() {
     // Un trazo (pintar o borrar arrastrando) se deshace de una vez.
@@ -179,6 +219,49 @@ function boot() {
       m.add(cap);
       markGroup.add(m);
     });
+    // triggers: línea vertical en su x y una etiqueta con su icono a la altura y
+    (ed.lv.triggers || []).forEach((t) => {
+      const info = TRIG[t.kind] || { icon: '?', color: '#ffffff' };
+      const y = trigY(t);
+      const col = new THREE.Color(info.color);
+      const line = segments([t.x, 0, 0, t.x, y - 0.42, 0, t.x, y + 0.42, 0, t.x, 14, 0], lineMat(col, t.spawnOnly ? 0.25 : 0.55, false));
+      line.renderOrder = 6;
+      markGroup.add(line);
+      const lbl = t.kind === 'spawn' ? '→' + t.target : t.group != null ? String(t.kind === 'follow' ? t.group + '→' + t.follower : t.group) : '';
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: trigTex(info.icon, lbl, info.color, t.spawnOnly), depthTest: false, transparent: true }));
+      sp.userData.ownMat = true;
+      sp.scale.set(0.84, 0.84, 1);
+      sp.position.set(t.x, y, 0.8);
+      sp.renderOrder = 7;
+      markGroup.add(sp);
+    });
+  }
+  // Altura (bloques) de la marca de un trigger.
+  function trigY(t) { return typeof t.y === 'number' ? t.y : 9; }
+  // Textura de la etiqueta de un trigger (icono + grupo), con caché.
+  const texCache = new Map();
+  function trigTex(icon, lbl, color, dashed) {
+    const key = icon + '|' + lbl + '|' + color + '|' + !!dashed;
+    if (texCache.has(key)) return texCache.get(key);
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(14, 11, 34, 0.92)';
+    g.strokeStyle = color;
+    g.lineWidth = 8;
+    if (dashed) g.setLineDash([14, 10]);
+    g.beginPath();
+    if (g.roundRect) g.roundRect(8, 8, 112, 112, 22); else g.rect(8, 8, 112, 112);
+    g.fill(); g.stroke();
+    g.fillStyle = color;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '900 60px Nunito, sans-serif';
+    g.fillText(icon, 64, lbl ? 52 : 66);
+    if (lbl) { g.fillStyle = '#ffffff'; g.font = '900 34px Nunito, sans-serif'; g.fillText(lbl.slice(0, 7), 64, 100); }
+    const tex = new THREE.CanvasTexture(c);
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    texCache.set(key, tex);
+    return tex;
   }
   function rebuild() {
     ed.def = toDef(ed.lv);
@@ -217,8 +300,14 @@ function boot() {
     return [d.x - r * 0.5, d.y - r * 0.5, d.x + r * 0.5, d.y + r * 0.5];
   }
   // Lo que hay bajo el cursor (en bloques): objeto, cambio de color o decorado; el de encima primero.
+  function trigBox(t) { const y = trigY(t); return [t.x - 0.42, y - 0.42, t.x + 0.42, y + 0.42]; }
   function pick(bx, by) {
     const lv = ed.lv;
+    const trigs = lv.triggers || [];
+    for (let i = trigs.length - 1; i >= 0; i--) {
+      const b = trigBox(trigs[i]);
+      if (bx >= b[0] && bx <= b[2] && by >= b[1] && by <= b[3]) return { kind: 'trig', i };
+    }
     for (let i = lv.objects.length - 1; i >= 0; i--) {
       const b = boxOf(lv.objects[i]);
       if (bx >= b[0] && bx <= b[2] && by >= b[1] && by <= b[3]) return { kind: 'obj', i };
@@ -238,6 +327,7 @@ function boot() {
     if (!h) return null;
     if (h.kind === 'obj') return ed.lv.objects[h.i] ? boxOf(ed.lv.objects[h.i]) : null;
     if (h.kind === 'deco') return ed.lv.decos[h.i] ? decoBox(ed.lv.decos[h.i]) : null;
+    if (h.kind === 'trig') return ed.lv.triggers[h.i] ? trigBox(ed.lv.triggers[h.i]) : null;
     const c = ed.lv.colors[h.i];
     return c ? [c.x - 0.3, 0, c.x + 0.3, 12.7] : null;
   }
@@ -247,6 +337,7 @@ function boot() {
     if (s.kind === 'obj') return ed.lv.objects[s.i] || null;
     if (s.kind === 'deco') return ed.lv.decos[s.i] || null;
     if (s.kind === 'color') return ed.lv.colors[s.i] || null;
+    if (s.kind === 'trig') return (ed.lv.triggers || [])[s.i] || null;
     return null;
   }
   function boxLines(b, hex, z) {
@@ -257,9 +348,28 @@ function boot() {
     l.renderOrder = 10;
     return l;
   }
+  // Grupos que resaltar: los del trigger u objeto elegido (o del trigger que se va a colocar).
+  function selGroups() {
+    const o = selected();
+    const src = o || (ed.tool === 'place' && ITEM[ed.item] && ITEM[ed.item].trig ? ed.place : null);
+    if (!src) return [];
+    const out = [];
+    const k = ed.sel ? ed.sel.kind : 'trig';
+    if (k === 'trig') {
+      if (src.group != null) out.push([src.group, 0x3bc8ff]);
+      if (src.follower != null) out.push([src.follower, 0xff7a3d]);
+      if (src.kind === 'spawn' && typeof src.target === 'number') out.push([src.target, 0xffd23a]);
+    } else if (k === 'obj' || k === 'deco') for (const g of Sim.groupsOf(src) || []) out.push([g, 0x3bc8ff]);
+    return out;
+  }
   function renderSel() {
     clearGroup(selGroup);
     if (!ed.lv) return;
+    // miembros de los grupos resaltados: caja de color, y los triggers de esos grupos
+    for (const [g, hex] of selGroups()) {
+      ed.lv.objects.forEach((o) => { const gs = Sim.groupsOf(o); if (gs && gs.includes(g)) selGroup.add(boxLines(boxOf(o), hex, 1.3)); });
+      (ed.lv.decos || []).forEach((d) => { const gs = Sim.groupsOf(d); if (gs && gs.includes(g)) selGroup.add(boxLines(decoBox(d), hex, 1.3)); });
+    }
     const b = boxOfHit(selected() ? ed.sel : null);
     if (b) selGroup.add(boxLines(b, 0xffcf4a));
     if (ed.hoverHit && (ed.tool === 'erase' || ed.tool === 'select') && !(ed.sel && ed.hoverHit.kind === ed.sel.kind && ed.hoverHit.i === ed.sel.i)) {
@@ -315,6 +425,7 @@ function boot() {
       clearGroup(ghostGroup);
       let geo, hex;
       if (it.special === 'color') { geo = new THREE.BoxGeometry(0.14, 12, 0.14).translate(0, 6, 0); hex = '#ff5a8a'; }
+      else if (it.trig) { geo = new THREE.BoxGeometry(0.7, 0.7, 0.1); hex = TRIG[it.trig.kind].color; }
       else if (it.deco) { geo = new THREE.SphereGeometry(0.35, 12, 8).translate(0.5, 0.5, 0); hex = tpl.color || '#ffffff'; }
       else { geo = ghostGeo(tpl); hex = ghostColor(tpl); }
       const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(hex), transparent: true, opacity: 0.42, depthTest: false, depthWrite: false }));
@@ -327,6 +438,7 @@ function boot() {
     }
     const p = snapPos(ed.hover.x, ed.hover.y);
     if (it.special === 'color') ghostGroup.position.set(Math.max(1, Math.round(ed.hover.x)), 0, 0.6);
+    else if (it.trig) ghostGroup.position.set(p.x, p.y + 0.5, 0.8);
     else ghostGroup.position.set(p.x, p.y, 0);
   }
 
@@ -420,7 +532,8 @@ function boot() {
   function selectItem(id) {
     ed.item = id;
     const it = ITEM[id];
-    ed.place = it.tpl ? Object.assign({}, it.tpl) : it.deco ? Object.assign({}, it.deco) : null;
+    ed.place = it.tpl ? Object.assign({}, it.tpl) : it.deco ? Object.assign({}, it.deco) : it.trig ? Object.assign({}, it.trig) : null;
+    if (it.trig && ed.place.group != null && ed.lastGroup) ed.place.group = ed.lastGroup; // el último grupo usado
     ed.sel = null;
     setTool('place');
     renderPalette();
@@ -444,6 +557,13 @@ function boot() {
       const k = ed.place.kind;
       lv.decos.push(Object.assign({}, ed.place, { x: k === 'pillar' || k === 'line' ? p.x : p.x + 0.5, y: k === 'pillar' ? p.y : p.y + 0.5 }));
       ed.sel = { kind: 'deco', i: lv.decos.length - 1 };
+    } else if (it.trig) {
+      lv.triggers = lv.triggers || [];
+      const y = p.y + 0.5;
+      if (lv.triggers.some((t) => t.x === p.x && trigY(t) === y)) return;
+      pushUndo();
+      lv.triggers.push(Object.assign({}, ed.place, { x: p.x, y }));
+      ed.sel = { kind: 'trig', i: lv.triggers.length - 1 };
     } else {
       const tpl = ed.place;
       // Sin duplicados exactos en la misma celda.
@@ -461,6 +581,7 @@ function boot() {
     pushUndo();
     if (s.kind === 'obj') ed.lv.objects.splice(s.i, 1);
     else if (s.kind === 'deco') ed.lv.decos.splice(s.i, 1);
+    else if (s.kind === 'trig') ed.lv.triggers.splice(s.i, 1);
     else if (s.kind === 'color' && s.i > 0) ed.lv.colors.splice(s.i, 1);
     ed.sel = null;
     ed.hoverHit = null;
@@ -506,6 +627,7 @@ function boot() {
     const c = Object.assign({}, o);
     c.x += ed.sel.kind === 'obj' ? (o.w || 1) : 1;
     if (ed.sel.kind === 'obj') { ed.lv.objects.push(c); ed.sel = { kind: 'obj', i: ed.lv.objects.length - 1 }; }
+    else if (ed.sel.kind === 'trig') { ed.lv.triggers.push(c); ed.sel = { kind: 'trig', i: ed.lv.triggers.length - 1 }; }
     else { ed.lv.decos.push(c); ed.sel = { kind: 'deco', i: ed.lv.decos.length - 1 }; }
     changed();
     renderProps();
@@ -515,7 +637,7 @@ function boot() {
     if (!o) return;
     const k = ed.sel.kind;
     if (k === 'color') { const x = Math.max(1, Math.round(bx)); if (x !== o.x) { o.x = x; changed(); } return; }
-    const sn = ed.fine || k === 'deco' ? 0.5 : 1;
+    const sn = ed.fine || k === 'deco' || k === 'trig' ? 0.5 : 1;
     const nx = Math.max(0, Math.round((bx - grab.dx) / sn) * sn);
     const ny = Math.max(-1, Math.min(60, Math.round((by - grab.dy) / sn) * sn));
     if (nx === o.x && ny === o.y) return;
@@ -659,6 +781,7 @@ function boot() {
     else if (e.code === 'Digit4') setTool('pan');
     else if (e.code === 'KeyG') toggleFine();
     else if (e.code === 'KeyV') toggleFlat();
+    else if (e.code === 'KeyT') toggleTrigView();
     else if (e.code === 'KeyP') testPlay(false, e.shiftKey);
     else handled = false;
     clampCam();
@@ -778,9 +901,10 @@ function boot() {
       </div>
       <div class="ed-box ed-status">
         <span id="edPos">x 0 · y 0</span>
-        <span class="keys">R gira · Supr borra · Ctrl+Z/Y · rueda desplaza · Ctrl+rueda zoom · Espacio+arrastrar mueve la vista · G rejilla fina · V vista</span>
+        <span class="keys">R gira · Supr borra · Ctrl+Z/Y · rueda desplaza · Ctrl+rueda zoom · Espacio+arrastrar mueve la vista · G rejilla fina · V vista · T vista previa de triggers</span>
         <button class="ed-b" id="edFine" title="Rejilla de medio bloque (G)" aria-label="Rejilla fina">½</button>
         <button class="ed-b" id="edFlat" title="Vista plana / 3D (V)" aria-label="Vista plana o 3D">3D</button>
+        <button class="ed-b" id="edTrigView" title="Ver el efecto de los triggers en la x de la vista (T)" aria-label="Vista previa de triggers">T</button>
         <button class="ed-b" id="edZoomOut" title="Alejar (-)" aria-label="Alejar">−</button>
         <button class="ed-b" id="edZoomIn" title="Acercar (+)" aria-label="Acercar">+</button>
         <button class="ed-b" id="edHome" title="Volver al inicio (Inicio)" aria-label="Ir al inicio">⌂</button>
@@ -824,6 +948,8 @@ function boot() {
   }
   function toggleFine() { ed.fine = !ed.fine; $('edFine').classList.toggle('on', ed.fine); }
   function toggleFlat() { ed.flat = !ed.flat; $('edFlat').textContent = ed.flat ? '2D' : '3D'; }
+  // Vista previa: el mundo aplica los triggers como si el jugador estuviera en la x del centro de la vista.
+  function toggleTrigView() { ed.trigView = !ed.trigView; $('edTrigView').classList.toggle('on', ed.trigView); }
 
   // Icono SVG de cada objeto de la paleta.
   function icon(it, o) {
@@ -831,6 +957,10 @@ function boot() {
     const objC = (ed.lv && ed.lv.colors[0].obj) || '#ff9f3b';
     const svg = (body) => `<svg viewBox="0 0 40 40" aria-hidden="true">${body}</svg>`;
     const st = 'stroke="#fff" stroke-width="1.6" stroke-linejoin="round"';
+    if (it.trig) {
+      const info = TRIG[it.trig.kind];
+      return svg(`<path d="M20 3 V37" stroke="${info.color}" stroke-width="2" opacity=".5"/><rect x="7" y="9" width="26" height="22" rx="5" fill="#0e0b22" stroke="${info.color}" stroke-width="2.4"/><text x="20" y="26" text-anchor="middle" font-size="16" font-weight="900" fill="${info.color}" font-family="Nunito, sans-serif">${info.icon}</text>`);
+    }
     if (it.special === 'color') return svg(['#ff5a8a', '#ffd23a', '#3bc8ff', '#7ee83a'].map((c, i) => `<rect x="${6 + i * 7}" y="7" width="7" height="26" fill="${c}"/>`).join('') + `<rect x="6" y="7" width="28" height="26" fill="none" ${st}/>`);
     if (it.deco) {
       const k = it.deco.kind;
@@ -910,7 +1040,7 @@ function boot() {
         box.innerHTML = '<h3>Cambio de color</h3><span class="tag">Toca en el nivel para que los colores cambien desde esa x. Luego elígelo con "Mover" para cambiar sus colores.</span>';
         return;
       }
-      o = ed.place; k = it.deco ? 'deco' : 'obj';
+      o = ed.place; k = it.deco ? 'deco' : it.trig ? 'trig' : 'obj';
     }
     if (!o) {
       const tips = { select: 'Toca un objeto para elegirlo y arrástralo para moverlo. En el vacío, arrastrar desplaza la vista.', erase: 'Toca o arrastra sobre los objetos para borrarlos.', pan: 'Arrastra para mover la vista. Con dos dedos o Ctrl+rueda: zoom.' };
@@ -943,11 +1073,32 @@ function boot() {
         html += `<div class="ed-f"><span>${n}</span><input type="color" data-field="${f}" value="${o[f] || '#ffffff'}"></div>`;
       }
       html += stepper('Fundido (bloques)', o.fade != null ? o.fade : 8, 'fade');
+    } else if (k === 'trig') {
+      const info = TRIG[o.kind] || { name: o.kind };
+      title = 'Trigger: ' + info.name.toLowerCase();
+      for (const [f, label, type, mn, mx, st] of TRIG_FIELDS[o.kind] || []) {
+        if (type === 'ease') html += `<div class="ed-f"><span>${label}</span><select data-tfield="${f}" data-type="ease">${EASES.map(([v, n]) => `<option value="${v}" ${(o.ease || 'inout') === v ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`;
+        else if (type === 'bool') html += `<div class="ed-f"><span>${label}</span><input type="checkbox" data-tfield="${f}" data-type="bool" ${o[f] !== false ? 'checked' : ''}></div>`;
+        else if (type === 'color') html += `<div class="ed-f"><span>${label}</span><input type="color" data-tfield="${f}" data-type="color" value="${HEX.test(o[f]) ? o[f] : '#ffffff'}"></div>`;
+        else if (type === 'target') html += `<div class="ed-f"><span>${label}</span><input type="text" maxlength="20" data-tfield="${f}" data-type="target" value="${esc(o[f] != null ? o[f] : '')}"></div>`;
+        else if (type === 'center') {
+          const has = typeof o.cx === 'number';
+          html += `<div class="ed-f"><span>${label}</span><input type="checkbox" data-tfield="center" data-type="center" ${has ? 'checked' : ''}></div>`;
+          if (has) html += `<div class="ed-f"><span>Centro x</span><input type="number" step="0.5" data-tfield="cx" data-type="num" data-min="-10" data-max="20000" value="${o.cx}"></div><div class="ed-f"><span>Centro y</span><input type="number" step="0.5" data-tfield="cy" data-type="num" data-min="-10" data-max="60" value="${o.cy}"></div>`;
+        } else html += `<div class="ed-f"><span>${label}</span><input type="number" data-tfield="${f}" data-type="${type}" data-min="${mn}" data-max="${mx}" step="${type === 'int' ? 1 : st || 0.5}" value="${o[f] != null ? o[f] : ''}"></div>`;
+      }
+      html += `<div class="ed-f"><span>Sólo con spawn</span><input type="checkbox" data-tfield="spawnOnly" data-type="spawnOnly" ${o.spawnOnly ? 'checked' : ''}></div>`;
+      html += `<div class="ed-f"><span>Id (para spawn)</span><input type="text" maxlength="20" data-tfield="id" data-type="id" value="${esc(o.id != null ? o.id : '')}" placeholder="opcional"></div>`;
+      html += '<span class="tag">Se activa cuando el jugador pasa por su x. Los grupos se ponen en el campo "Grupo" de cada objeto.</span>';
+    }
+    if (k === 'obj' || k === 'deco') {
+      const gs = Sim.groupsOf(o);
+      html += `<div class="ed-f"><span>Grupo</span><input type="text" maxlength="30" data-gfield="1" value="${gs ? gs.join(', ') : ''}" placeholder="ninguno (p. ej. 1 o 1, 3)"></div>`;
     }
     if (isSel) {
       html += `<div class="ed-acts">${k !== 'color' ? '<button class="ed-b" data-act="dup" title="Ctrl+D">⧉ Duplicar</button>' : ''}<button class="ed-b danger" data-act="delete" title="Supr">✖ Borrar</button></div>`;
-      html += `<span class="tag">x ${o.x}${o.y != null ? ' · y ' + o.y : ''}</span>`;
-    } else html += '<span class="tag">Toca la rejilla para colocar; arrastra para pintar varios. R gira.</span>';
+      html += `<span class="tag">x ${o.x}${o.y != null && k !== 'trig' ? ' · y ' + o.y : ''}</span>`;
+    } else html += `<span class="tag">${k === 'trig' ? 'Toca en el nivel para poner el trigger en esa x.' : 'Toca la rejilla para colocar; arrastra para pintar varios. R gira.'}</span>`;
     box.innerHTML = `<h3>${esc(title)}</h3>${html}`;
     const edit = (fn) => {
       if (isSel) pushUndo();
@@ -987,6 +1138,50 @@ function boot() {
       else if (a === 'rotate') rotate();
       else if (a === 'dup') duplicateSel();
     }));
+    // campos de los triggers
+    box.querySelectorAll('[data-tfield]').forEach((el) => el.addEventListener(el.type === 'color' ? 'input' : 'change', () => {
+      const f = el.dataset.tfield, type = el.dataset.type;
+      const apply = () => {
+        if (type === 'num' || type === 'int') {
+          let v = Number(el.value);
+          if (el.value === '' || !isFinite(v)) return;
+          if (type === 'int') v = Math.round(v);
+          v = Math.max(Number(el.dataset.min), Math.min(Number(el.dataset.max), v));
+          o[f] = v;
+          if (f === 'group' || f === 'follower') ed.lastGroup = v;
+        } else if (type === 'ease') o.ease = el.value;
+        else if (type === 'bool') o[f] = el.checked;
+        else if (type === 'color') o[f] = el.value;
+        else if (type === 'center') {
+          if (el.checked) {
+            // centro inicial: el de los objetos del grupo (o la x del trigger)
+            const bs = ed.lv.objects.filter((ob) => (Sim.groupsOf(ob) || []).includes(o.group)).map(boxOf);
+            o.cx = bs.length ? Math.round((Math.min(...bs.map((b) => b[0])) + Math.max(...bs.map((b) => b[2]))) ) / 2 : o.x;
+            o.cy = bs.length ? Math.round((Math.min(...bs.map((b) => b[1])) + Math.max(...bs.map((b) => b[3]))) ) / 2 : 3;
+          } else { delete o.cx; delete o.cy; }
+        } else if (type === 'spawnOnly') { if (el.checked) o.spawnOnly = true; else delete o.spawnOnly; }
+        else if (type === 'id') { const v = el.value.trim(); if (TRIG_ID.test(v)) o.id = v; else delete o.id; }
+        else if (type === 'target') { const v = el.value.trim(); if (/^\d{1,3}$/.test(v)) o.target = Number(v); else if (TRIG_ID.test(v)) o.target = v; }
+      };
+      if (el.type === 'color') {
+        if (isSel && !el.dataset.pushed) { pushUndo(); el.dataset.pushed = '1'; }
+        apply();
+        if (isSel) changed();
+        return;
+      }
+      edit(apply);
+      renderSel();
+    }));
+    // grupo(s) de un objeto o decorado: "1" o "1, 3"
+    box.querySelectorAll('[data-gfield]').forEach((el) => el.addEventListener('change', () => {
+      edit(() => {
+        const gs = Array.from(new Set((el.value.match(/\d+/g) || []).map(Number).filter((v) => v >= 1 && v <= 999))).slice(0, 8);
+        delete o.group; delete o.groups;
+        if (gs.length) { o.group = gs[0]; ed.lastGroup = gs[0]; }
+        if (gs.length > 1) o.groups = gs;
+      });
+      renderSel();
+    }));
   }
 
   // ------------------------------------------------------------ ventanas
@@ -1019,7 +1214,8 @@ function boot() {
       <div class="ed-f"><label for="stSpeed">Velocidad inicial</label><select id="stSpeed">${opt(SPEEDS, lv.startSpeed, (v) => v + 'x')}</select></div>
       <div class="ed-f"><label for="stLen">Largo (bloques, 0 = auto)</label><input type="number" id="stLen" min="0" max="20000" step="1" value="${lv.length || 0}"></div>
       <p id="stLenInfo"></p>
-      <div class="ed-f"><label for="stBg">Fondo</label><input type="color" id="stBg" value="${c0.bg}"></div>
+      <div class="ed-f"><label for="stTheme">Paisaje</label><select id="stTheme">${window.ND3D.World.THEMES.map((t) => `<option value="${t}" ${t === (lv.theme3d || 'ciudad') ? 'selected' : ''}>${window.ND3D.World.THEME_NAMES[t]}</option>`).join('')}</select></div>
+      <div class="ed-f"><label for="stBg">Color de fondo</label><input type="color" id="stBg" value="${c0.bg}"></div>
       <div class="ed-f"><label for="stGround">Suelo</label><input type="color" id="stGround" value="${c0.ground}"></div>
       <div class="ed-f"><label for="stLine">Línea del suelo</label><input type="color" id="stLine" value="${c0.line || '#ffffff'}"></div>
       <div class="ed-f"><label for="stObj">Bordes de los bloques</label><input type="color" id="stObj" value="${c0.obj || '#ff9f3b'}"></div>
@@ -1030,8 +1226,9 @@ function boot() {
       const upd = () => { changed(); info(); };
       info();
       r.querySelector('#stName').addEventListener('input', (e) => { lv.name = e.target.value.slice(0, 40) || 'Sin nombre'; $('edName').value = lv.name; upd(); });
-      r.querySelector('#stSong').addEventListener('change', (e) => { lv.song = e.target.value; lv.bpm = SONG_BPM[lv.song]; r.querySelector('#stBpm').value = lv.bpm; upd(); });
+      r.querySelector('#stSong').addEventListener('change', (e) => { lv.song = e.target.value; if (lv.song.startsWith('track:')) Sound.loadTrack(lv.song); lv.bpm = SONG_BPM[lv.song]; r.querySelector('#stBpm').value = lv.bpm; upd(); });
       r.querySelector('#stBpm').addEventListener('change', (e) => { const v = Number(e.target.value); if (v >= 40 && v <= 300) lv.bpm = v; else e.target.value = lv.bpm; upd(); });
+      r.querySelector('#stTheme').addEventListener('change', (e) => { lv.theme3d = e.target.value; upd(); });
       r.querySelector('#stMode').addEventListener('change', (e) => { lv.startMode = e.target.value; upd(); });
       r.querySelector('#stSpeed').addEventListener('change', (e) => { lv.startSpeed = Number(e.target.value); upd(); });
       r.querySelector('#stLen').addEventListener('change', (e) => { const v = Math.round(Number(e.target.value)); lv.length = v > 0 ? Math.min(20000, Math.max(10, v)) : 0; e.target.value = lv.length; upd(); });
@@ -1050,7 +1247,7 @@ function boot() {
       <div class="row"><button class="btn orange" id="clYes">Vaciar</button><button class="btn ghost" id="clNo">Cancelar</button></div>`, (r) => {
       r.querySelector('#clYes').addEventListener('click', () => {
         pushUndo();
-        ed.lv.objects = []; ed.lv.decos = []; ed.lv.colors = [ed.lv.colors[0]];
+        ed.lv.objects = []; ed.lv.decos = []; ed.lv.triggers = []; ed.lv.colors = [ed.lv.colors[0]];
         ed.sel = null;
         changed(); closeModal();
       });
@@ -1061,8 +1258,9 @@ function boot() {
   // ------------------------------------------------------------ compartir (formato ND1. de Neon Dash)
   function encode(lv) {
     const def = toDef(lv);
-    const data = { v: 1, name: lv.name, theme: 'original', song: lv.song, bpm: lv.bpm, startMode: lv.startMode, startSpeed: lv.startSpeed,
+    const data = { v: 1, name: lv.name, theme: 'original', song: lv.song, bpm: lv.bpm, startMode: lv.startMode, startSpeed: lv.startSpeed, theme3d: lv.theme3d || 'ciudad',
       objects: def.objects, decos: def.decos, colors: def.colors };
+    if ((lv.triggers || []).length) data.triggers = lv.triggers.map((t) => Object.assign({}, t));
     if (lv.length > 0) data.length = lv.length;
     const bytes = new TextEncoder().encode(JSON.stringify(data));
     let bin = '';
@@ -1082,6 +1280,35 @@ function boot() {
     } catch (e) { throw new Error('El código está incompleto o dañado.'); }
     return sanitize(data);
   }
+  // Grupos de un objeto importado: enteros 1..999 (como mucho 8).
+  function cleanGroups(o, c) {
+    const gs = [];
+    for (const v of [o.group].concat(Array.isArray(o.groups) ? o.groups.slice(0, 8) : [])) if (Number.isInteger(v) && v >= 1 && v <= 999 && !gs.includes(v)) gs.push(v);
+    if (gs.length) c.group = gs[0];
+    if (gs.length > 1) c.groups = gs;
+  }
+  // Triggers importados: sólo los tipos conocidos y sus campos, con números en rango.
+  function cleanTriggers(list) {
+    const out = [];
+    for (const t of Array.isArray(list) ? list.slice(0, 1000) : []) {
+      if (!t || !TRIG[t.kind] || !num(t.x, 0, 20000)) continue;
+      const c = { kind: t.kind, x: t.x, y: num(t.y, -2, 60) ? t.y : 9 };
+      for (const [f, , type, mn, mx] of TRIG_FIELDS[t.kind]) {
+        const v = t[f];
+        if (type === 'int') c[f] = Number.isInteger(v) && v >= mn && v <= mx ? v : TRIG[t.kind].tpl[f];
+        else if (type === 'num') c[f] = num(v, mn, mx) ? v : TRIG[t.kind].tpl[f];
+        else if (type === 'ease') { if (EASES.some(([e]) => e === v)) c.ease = v; }
+        else if (type === 'bool') c[f] = v !== false;
+        else if (type === 'color') c[f] = HEX.test(v) ? v : '#ffffff';
+        else if (type === 'target') c[f] = Number.isInteger(v) && v >= 0 && v <= 999 ? v : typeof v === 'string' && TRIG_ID.test(v) ? v : 1;
+        else if (type === 'center') { if (num(t.cx, -10, 20000) && num(t.cy, -10, 60)) { c.cx = t.cx; c.cy = t.cy; } }
+      }
+      if (t.spawnOnly === true) c.spawnOnly = true;
+      if (typeof t.id === 'string' && TRIG_ID.test(t.id)) c.id = t.id;
+      out.push(c);
+    }
+    return out;
+  }
   // Valida campo a campo: tipos conocidos y números en rango. Nada se evalúa.
   function sanitize(d) {
     if (!d || typeof d !== 'object') throw new Error('El código no contiene un nivel.');
@@ -1092,6 +1319,7 @@ function boot() {
     if (MODES.includes(d.startMode)) lv.startMode = d.startMode;
     if (SPEEDS.includes(d.startSpeed)) lv.startSpeed = d.startSpeed;
     if (num(d.length, 10, 20000)) lv.length = Math.round(d.length);
+    if (window.ND3D.World.THEMES.includes(d.theme3d)) lv.theme3d = d.theme3d;
     const objs = Array.isArray(d.objects) ? d.objects : [];
     if (objs.length > 6000) throw new Error('El nivel tiene demasiados objetos (máximo 6000).');
     const KIND = { pad: PAD_KINDS, orb: ORB_KINDS, portal: PORTAL_KINDS.concat('speed') };
@@ -1116,6 +1344,7 @@ function boot() {
         if (o.t === 'portal' && num(o.floor, 0, 50)) c.floor = o.floor;
         if (o.t === 'portal' && [90, 180, 270].includes(o.r)) c.r = o.r;
       } else if (o.t !== 'coin') continue;
+      cleanGroups(o, c);
       lv.objects.push(c);
     }
     const decos = Array.isArray(d.decos) ? d.decos.slice(0, 2000) : [];
@@ -1128,8 +1357,10 @@ function boot() {
       if (num(o.alpha, 0, 1)) c.alpha = o.alpha;
       if (o.layer === 'fg') c.layer = 'fg';
       if (o.beat === true) c.beat = true;
+      cleanGroups(o, c);
       lv.decos.push(c);
     }
+    lv.triggers = cleanTriggers(d.triggers);
     const cols = Array.isArray(d.colors) ? d.colors.slice(0, 200) : [];
     const good = cols.filter((c) => c && num(c.x, 0, 20000) && HEX.test(c.bg) && HEX.test(c.ground)).map((c) => {
       const o = { x: c.x, bg: c.bg, ground: c.ground };
@@ -1247,7 +1478,10 @@ function boot() {
 
   function openEditor(lv) {
     ed.lv = lv;
+    if (lv.song && lv.song.startsWith('track:')) Sound.loadTrack(lv.song);
     lv.decos = lv.decos || [];
+    lv.triggers = lv.triggers || [];
+    for (const t of lv.triggers) if (typeof t.y !== 'number') t.y = 9;
     ed.sel = null; ed.hoverHit = null; ed.hover = null;
     ed.undo.length = 0; ed.redo.length = 0;
     ed.builtLen = -1;
@@ -1326,6 +1560,7 @@ function boot() {
       }
     };
     worker.onerror = (e) => { const msg = $('vfMsg'); if (msg) msg.textContent = 'No se pudo verificar: ' + (e.message || 'error'); worker.terminate(); };
+    worker.postMessage({ def });
   }
   function exitToMenu() {
     ed.lv = null;
@@ -1347,6 +1582,7 @@ function boot() {
     return {
       x: 0, y: HALF, rot: 0, mode: ed.lv.startMode, mini: false, flip: 1, dead: false, visible: true,
       camX: ed.cam.x * B, camY: ed.cam.y * B, beat: 0, colorsX: ed.cam.x * B, used: {}, trail: null, lo: 0, hi: Infinity,
+      gsX: ed.trigView ? ed.cam.x * B : null,
     };
   }
 
@@ -1369,6 +1605,7 @@ function boot() {
   $('edPractice').addEventListener('click', () => testPlay(true));
   $('edFine').addEventListener('click', toggleFine);
   $('edFlat').addEventListener('click', toggleFlat);
+  $('edTrigView').addEventListener('click', toggleTrigView);
   $('edZoomIn').addEventListener('click', () => zoomAt(innerWidth / 2, innerHeight / 2, 1.25));
   $('edZoomOut').addEventListener('click', () => zoomAt(innerWidth / 2, innerHeight / 2, 1 / 1.25));
   $('edHome').addEventListener('click', homeCam);

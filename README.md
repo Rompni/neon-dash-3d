@@ -6,12 +6,20 @@ mundo 3D con cámara en perspectiva, bloom, ciudad nocturna, partículas y model
 
 ## Qué tiene
 
-- **8 niveles**, uno por fondo (ciudad, espacio, cristales, montañas, atardecer, vacío, volcán), con los destellos y movimientos que trae cada nivel.
-- **Modos:** cubo, nave, bola, ovni, onda, robot, araña, swing y dual (gemelo con la gravedad contraria). El nivel 8, Telaraña, usa los nuevos.
+- **12 niveles con canciones reales** (generadas con Flow Music, IA), de 1:30 a 2:15 cada uno. Cada nivel sigue las secciones
+  de su canción: cambios de modo y portales al empezar los drops, saltos y orbes en los tiempos, destellos por compás, colores por
+  sección y triggers que mueven obstáculos y la cámara. Primer Pulso, Órbita, Fase Doble, Ladera, Espejo, Abismo, Baño de Sangre,
+  Telaraña, Engranaje, Vértigo, ZigZag y Apex (el final demonio).
+- **14 fondos:** ciudad, montañas, atardecer, cristales, espacio, vacío, volcán, bosque, desierto, glaciar (con aurora), circuito,
+  océano, ruinas y tormenta (con relámpagos). Cada nivel tiene el suyo y en el editor se puede elegir cualquiera.
+- **Triggers de grupo** (como en GD): mover, girar, apagar/encender, desvanecer, spawn y follow sobre objetos reales (con su
+  colisión), y triggers de cámara (zoom, desplazamiento, giro).
+- **Modos:** cubo, nave, bola, ovni, onda, robot, araña, swing y dual (gemelo con la gravedad contraria).
 - **Garaje:** 96 modelos de Blender: 12 estilos por modo (Clásico, Demonio, Tecno, Sonrisa, Pinchos, Núcleo, Cristal, Cuernos, Blindado, Runa, Ojos y Equis). Cada estilo se desbloquea para todos los modos al recoger cierto número de monedas y trae sus colores (o se usan las 6 paletas del jugador).
 - **Editor de niveles** (botón Crear): ver la sección Editor más abajo.
 - **Detalles de partida:** entrada de cámara al empezar, salida volando por la meta, diamantes de checkpoint en práctica, aviso de nuevo récord, estela y aplastamiento al aterrizar.
-- **Menú** con el jugador jugando solo (rutas del bot) y bloom selectivo (el neón brilla, el jugador conserva sus colores).
+- **Menú** con el jugador jugando solo (rutas del bot), su música en bucle y bloom selectivo (el neón brilla, el jugador conserva sus colores).
+- **Progreso:** orbes, diamantes, tienda de estelas, muertes, llamas y brillos, logros, misiones diarias y cofres.
 
 ## Jugar
 
@@ -21,6 +29,8 @@ npm run serve        # http://localhost:8792
 ```
 
 Three.js se carga desde jsdelivr (versión 0.170.0), así que la primera vez hace falta conexión.
+Las canciones van en `dist/music/` (las copia build.js) y se cargan junto al HTML: sin esa carpeta (p. ej. abriendo el
+HTML suelto) el juego usa la música sintetizada de respaldo.
 
 - **Saltar:** `Espacio` / `↑` / `W` / clic / toque. **Pausa:** `Esc`. **Reiniciar:** `R`.
 - **Práctica:** puntos de control automáticos; `Z` marca uno y `X` lo quita.
@@ -38,7 +48,8 @@ Los niveles se guardan en este navegador (localStorage `neondash3d.levels.v1`) y
   `Ctrl+D` duplica · `G` rejilla de medio bloque · `V` vista plana/3D · `P` probar · `Inicio` vuelve al principio.
 - **Vista:** rueda o flechas/WASD desplazan, `Ctrl+rueda` o `+`/`−` hacen zoom, `Espacio`+arrastrar mueve la vista.
   En móvil: tocar coloca, arrastrar pinta, dos dedos desplazan y hacen zoom.
-- **Ajustes del nivel (⚙):** nombre, música, BPM, modo y velocidad iniciales, largo (0 = último objeto + 12) y colores.
+- **Ajustes del nivel (⚙):** nombre, música (las canciones reales o las sintetizadas), BPM, modo y velocidad iniciales, largo (0 = último objeto + 12), paisaje de fondo y colores.
+- **Triggers** (pestaña Triggers) y campo **Grupo** en cada objeto; `T` previsualiza el efecto de los triggers donde estás mirando.
   "Cambio de color" (pestaña Extra) cambia los colores a partir de una x.
 - **Probar / Práctica** juegan el nivel; **Desde aquí** (`Mayús+P`) empieza donde estás mirando, con el modo y la velocidad
   de los portales anteriores. Al salir (pausa → Editor) se vuelve al editor en el mismo sitio.
@@ -53,8 +64,12 @@ selecciones, en un grupo propio de la escena) sólo mientras la pantalla es `edi
 src/sim.js      física (la de Neon Dash más robot, araña, swing y dual; no cambiar sin pasar el bot)
 src/solver.js   el bot que busca rutas (lo usan los tests, las demos y el botón Verificar del editor)
 src/editor.js   editor de niveles
-src/levels.js   los 8 niveles (7 de Neon Dash y Telaraña, con los modos nuevos)
-src/audio.js    música y efectos sintetizados (copiados de Neon Dash)
+src/levels.js   Builder y utilidades de los niveles (ritmo, adornos) y el orden del menú
+src/niveles/    un archivo por nivel
+src/tracks.js   datos medidos de cada canción: BPM, primer compás, duración, energía por compás
+src/music/      las canciones en MP3 (recortadas, volumen igualado a −13 LUFS)
+src/audio.js    reproducción de las canciones, música sintetizada de respaldo y efectos
+src/meta.js     progreso: orbes, diamantes, tienda, logros, misiones, cofres y música propia por nivel
 src/demos.js    rutas ganadoras del bot para la demo del menú (generado por tools/solve-demos.js)
 src/models.js   modelos del jugador en GLB, en base64 (generado por tools/import-models.js)
 src/world.js    todo lo 3D: escena, materiales, construcción del nivel, jugador, partículas, posproceso y cámara
@@ -64,6 +79,14 @@ build.js        junta todo en un HTML; <script src="a.js+b.js"> concatena módul
 ```
 
 Escala: 1 bloque = 30 unidades de la física = 1 unidad 3D. El plano de juego es z = 0.
+
+## Música y sincronización
+
+La música empieza a la vez que el nivel (x = 0). En cada nivel, `ritmo('<canción>', [[compás, velocidad], …])` da la x
+de cada compás y tiempo según el BPM, el primer compás medido (`bar0`) y los portales de velocidad, así que las secciones se
+escriben por compases: `b.portal(r(15), …)` cae justo en el drop del compás 15. `r.end` es el final de la canción.
+Los WAV originales están en `music/` (fuera de git); `src/tracks.js` se generó midiendo tempo (librosa), fase del bombo y
+energía por compás. Créditos: "Música: generada con Flow Music (IA)" (se muestra en Ajustes).
 
 ## Herramientas
 
@@ -79,6 +102,7 @@ Los materiales `color1` (cuerpo) y `neon` (brillo) los recolorea el juego con lo
 
 ## Tests
 
-`npm test` corre los tests de física y de los modos nuevos, y comprueba que las rutas de la demo completan cada nivel.
-`npm run bot` comprueba con el bot que los 8 niveles se pueden completar cambiando la entrada cada 4 y cada 12 ticks, sin esquivar portales (unos 20 min).
+`npm test` corre los tests de física, de los modos nuevos y de los triggers, y comprueba que las rutas de la demo completan cada nivel.
+`npm run bot` comprueba con el bot que los 12 niveles se pueden completar cambiando la entrada cada 4 y cada 12 ticks, sin esquivar portales
+(los niveles largos tardan: varias horas en total; para uno solo, `node test/bot.js 12 <id>`).
 Las pruebas de margen por toque (fair, wavefair) siguen sólo en el repo de Neon Dash.

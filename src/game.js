@@ -56,8 +56,18 @@ const game = {
 
 function showScreen(name) {
   game.screen = name;
-  for (const id of ['menu', 'levels', 'pause', 'settings', 'complete', 'editor', 'garage']) $(id).hidden = id !== name;
+  for (const id of ['menu', 'levels', 'pause', 'settings', 'complete', 'editor', 'garage', 'rewards']) $(id).hidden = id !== name;
+  if (name === 'menu' && typeof renderWallet === 'function') renderWallet();
   $('hud').hidden = !(name === 'play' || name === 'pause' || name === 'complete');
+  // música del menú (canción real en bucle); el editor va en silencio hasta que se prueba el nivel
+  if (MENU_SCREENS.includes(name)) Sound.menu(MENU_TRACK, () => MENU_SCREENS.includes(game.screen));
+  else if (name === 'editor' && Sound.playing() === MENU_TRACK) Sound.stop(0.4);
+}
+const MENU_TRACK = 'track:neon-menu-loop', MENU_SCREENS = ['menu', 'levels', 'garage', 'rewards'];
+// Canción de un nivel: 'track:<id>' (MP3 real) si está disponible; si no, la sintetizada de respaldo (def.synth).
+function songOf(def) {
+  if (def.song && def.song.startsWith('track:') && !Sound.isReady(def.song)) return def.synth || 'pulso';
+  return def.song;
 }
 
 // ------------------------------------------------------------------ triggers del nivel
@@ -138,6 +148,7 @@ function applyStart(L, s, x) {
 // start: { x } en bloques para empezar desde ese punto ("Probar desde aquí").
 function startCustom(def, practice, start) {
   game.custom = def;
+  game.songId = songOf(def);
   game.customStart = start && start.x > 0 ? start.x : 0;
   const L = Sim.compileLevel(def);
   L.custom = true;
@@ -156,6 +167,8 @@ function startCustom(def, practice, start) {
 
 function startLevel(i, practice) {
   game.custom = null;
+  if (!game.songReady) game.songId = songOf(defs[i]);
+  game.songReady = false;
   game.customStart = 0;
   game.sel = i;
   const L = Sim.compileLevel(defs[i]);
@@ -197,7 +210,8 @@ function newAttempt() {
   game.winX = game.winY = 0;
   game.lastCpTick = s.tick;
   syncCheckpoints();
-  const lead = Sound.start(L.def.song, s.tick / TPS);
+  if (window.ND3D.Meta) window.ND3D.Meta.attempt();
+  const lead = game.practice && !save.practiceMusic ? (Sound.stop(0), 0) : Sound.start(game.songId || songOf(L.def), s.tick / TPS);
   game.simClock = performance.now() + lead;
   showAttempt();
 }
@@ -212,6 +226,7 @@ function showNewBest(p) {
 
 function showAttempt() {
   const el = $('attempt');
+  el.hidden = !save.showAttempts;
   el.textContent = game.practice ? 'Práctica' : 'Intento ' + game.attempts;
   el.style.transition = 'none';
   el.style.opacity = '1';
@@ -307,12 +322,14 @@ function handleEvents(now) {
         Sound.sfx('death');
         const p = pct(s);
         if (!game.practice && !game.custom && p >= 5 && p > bestOf(L.id).normal) showNewBest(p);
+        if (window.ND3D.Meta) window.ND3D.Meta.death(p);
         record(p);
         break;
       }
       case 'win':
         game.wonAt = now;
         game.winX = s.x; game.winY = s.y;
+        game.lastReward = window.ND3D.Meta ? window.ND3D.Meta.win(s) : '';
         Sound.stop(1.2);
         Sound.sfx('complete');
         record(100);
@@ -325,6 +342,9 @@ function handleEvents(now) {
         break;
       case 'coin':
         Sound.sfx('coin');
+        break;
+      case 'jump': case 'flap': case 'teleport':
+        if (window.ND3D.Meta && !e.twin) window.ND3D.Meta.jump();
         break;
     }
   }
@@ -438,7 +458,7 @@ function resume() {
   game.paused = false;
   showScreen('play');
   game.queue.length = 0;
-  const lead = Sound.start(game.L.def.song, game.s.tick / TPS);
+  const lead = game.practice && !save.practiceMusic ? 0 : Sound.start(game.songId || songOf(game.L.def), game.s.tick / TPS);
   game.simClock = performance.now() + lead;
   $('view').focus();
 }
@@ -460,6 +480,7 @@ function showComplete() {
   const secs = Math.round(s.tick / TPS);
   $('doneTime').textContent = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
   $('doneCoins').textContent = got + '/' + L.coins.length;
+  $('doneReward').textContent = game.lastReward || '';
   $('doneNext').hidden = !!game.custom || game.sel >= defs.length - 1;
   showScreen('complete');
   $('doneNext').hidden ? $('doneRetry').focus() : $('doneNext').focus();
@@ -503,6 +524,17 @@ function twinView(s, a) {
   if (!t) return null;
   return { x: t.px + (t.x - t.px) * a, y: t.py + (t.y - t.py) * a, rot: lerpAngle(t.prot != null ? t.prot : t.rot, t.rot, a), mode: t.mode, mini: t.mini, flip: t.flip, dead: t.dead, grounded: t.grounded };
 }
+// Rectángulos de la física para la opción de hitboxes: jugador (exterior e interior), gemelo y objetos cercanos.
+function hitboxesOf(s, L) {
+  const out = [];
+  for (const p of [s, s.twin]) {
+    if (!p) continue;
+    const h = Sim.halfOf(p), ih = Sim.innerOf(p);
+    out.push([p.x - h, p.y - h, p.x + h, p.y + h, 0], [p.x - ih, p.y - ih, p.x + ih, p.y + ih, 1]);
+  }
+  for (const o of Sim.query(L, s.x - 90, s.x + 600)) if (!o.deco) out.push([o.x0, o.y0, o.x1, o.y1, o.hazard ? 2 : (o.solid || o.slope) ? 3 : 4]);
+  return out;
+}
 function lerpAngle(a, b, t) {
   let d = ((b - a) % 360 + 540) % 360 - 180;
   return a + d * t;
@@ -528,6 +560,7 @@ function loop(now) {
       wonT: s.won && game.wonAt ? (now - game.wonAt) / 1000 : null,
     };
     if (s.won) view.camX = game.winX + 3.6 * B;
+    if (save.hitboxes) view.boxes = hitboxesOf(s, game.L);
     updateHud(s);
   } else if (game.screen === 'garage') {
     view = { x: 0, y: 3 * B, visible: true, mode: game.garageMode, rot: 0, flip: 1, camX: 0, camY: 3 * B, beat: beatPulse(performance.now() / 1000 * TPS, 120) * 0.5, colorsX: 0, menu: true, garage: true, lo: 0, hi: Infinity };
@@ -565,6 +598,7 @@ function loop(now) {
 
 let hudPct = -1;
 function updateHud(s) {
+  $('hud').querySelector('.top').style.visibility = save.showPct ? '' : 'hidden';
   const p = pct(s);
   if (p === hudPct) return;
   hudPct = p;
@@ -600,6 +634,9 @@ window.addEventListener('keydown', (e) => {
     case 'KeyR':
       if (game.screen === 'play' || game.screen === 'pause' || game.screen === 'complete') restartLevel();
       break;
+    case 'KeyH':
+      save.hitboxes = !save.hitboxes; persist();
+      break;
     case 'KeyZ':
       if (game.screen === 'play' && game.practice) addCheckpoint(true);
       break;
@@ -629,6 +666,7 @@ window.addEventListener('resize', () => World.resize());
 function unlockAudio() {
   Sound.resume();
   Sound.setVolumes(save.music, save.sfx);
+  if (MENU_SCREENS.includes(game.screen)) Sound.menu(MENU_TRACK, () => MENU_SCREENS.includes(game.screen));
 }
 function click() { Sound.sfx('click'); }
 
@@ -653,6 +691,9 @@ function renderLevelCard() {
   const got = (save.coins[def.id] || []).length;
   $('lvCoins').innerHTML = Array.from({ length: total }, (_, k) => `<span class="coin-dot${k < got ? ' got' : ''}"></span>`).join('');
   $('lvDots').innerHTML = defs.map((_, k) => `<i class="${k === game.sel ? 'on' : ''}"></i>`).join('');
+  $('lvStars').classList.toggle('earned', !!save.completed && !!save.completed[def.id]);
+  if (typeof renderSongRow === 'function') renderSongRow();
+  if (typeof renderWallet === 'function') renderWallet();
 }
 
 // ------------------------------------------------------------------ garaje
@@ -713,13 +754,17 @@ function renderSettings() {
   const html = `
     <div class="setting"><label for="volMusic{n}">Música</label><input type="range" id="volMusic{n}" min="0" max="1" step="0.05" value="${save.music}"></div>
     <div class="setting"><label for="volSfx{n}">Efectos</label><input type="range" id="volSfx{n}" min="0" max="1" step="0.05" value="${save.sfx}"></div>
+    ${[['showPct', 'Mostrar porcentaje'], ['showAttempts', 'Mostrar intentos'], ['hitboxes', 'Ver hitboxes (H)'], ['practiceMusic', 'Música en práctica'], ['reduceFlash', 'Reducir destellos']].map(([k, n]) =>
+      `<div class="setting"><span>${n}</span><div class="seg"><button class="${save[k] ? 'on' : ''}" data-opt="${k}" data-v="1">Sí</button><button class="${save[k] ? '' : 'on'}" data-opt="${k}" data-v="0">No</button></div></div>`).join('')}
     <div class="setting"><span>Resolución</span><div class="seg">${[['nativa', 'Nativa'], ['alta', 'Alta'], ['media', 'Media'], ['baja', 'Baja']].map(([r, n]) => `<button class="${save.resolution === r ? 'on' : ''}" data-res="${r}">${n}</button>`).join('')}</div></div>
     <div class="setting"><span>Calidad</span><div class="seg" data-quality>${['alta', 'baja'].map((q) => `<button class="${save.quality === q ? 'on' : ''}" data-q="${q}">${q === 'alta' ? 'Alta' : 'Baja'}</button>`).join('')}</div></div>
-    <div class="setting"><span>Colores</span><div class="swatches">${PALETTES.map(([a, b], k) => `<button class="swatch${k === save.palette ? ' on' : ''}" data-pal="${k}" aria-label="Colores ${k + 1}" style="background:linear-gradient(135deg, ${a} 50%, ${b} 50%)"></button>`).join('')}</div></div>`;
+    <div class="setting"><span>Colores</span><div class="swatches">${PALETTES.map(([a, b], k) => `<button class="swatch${k === save.palette ? ' on' : ''}" data-pal="${k}" aria-label="Colores ${k + 1}" style="background:linear-gradient(135deg, ${a} 50%, ${b} 50%)"></button>`).join('')}</div></div>
+    <p class="credit">${Tracks.credit}</p>`;
   document.querySelectorAll('[data-settings]').forEach((el, n) => {
     el.innerHTML = html.replace(/\{n\}/g, n);
     el.querySelector(`#volMusic${n}`).addEventListener('input', (e) => { save.music = Number(e.target.value); Sound.setVolumes(save.music, save.sfx); persist(); });
     el.querySelector(`#volSfx${n}`).addEventListener('input', (e) => { save.sfx = Number(e.target.value); Sound.setVolumes(save.music, save.sfx); persist(); });
+    el.querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => { save[b.dataset.opt] = b.dataset.v === '1'; persist(); click(); World.setReduceFlash(save.reduceFlash); renderSettings(); }));
     el.querySelectorAll('[data-res]').forEach((b) => b.addEventListener('click', () => { save.resolution = b.dataset.res; World.setResolution(save.resolution); persist(); click(); renderSettings(); }));
     el.querySelectorAll('[data-q]').forEach((b) => b.addEventListener('click', () => { save.quality = b.dataset.q; World.W.resolution = save.resolution;
 World.setQuality(save.quality); persist(); click(); renderSettings(); }));
@@ -740,13 +785,15 @@ $('settingsClose').addEventListener('click', () => { click(); showScreen('menu')
 $('levelsBack').addEventListener('click', () => { click(); showScreen('menu'); });
 $('prevLevel').addEventListener('click', () => { click(); selectLevel(game.sel - 1); });
 $('nextLevel').addEventListener('click', () => { click(); selectLevel(game.sel + 1); });
-$('startLevel').addEventListener('click', () => { unlockAudio(); startLevel(game.sel, false); });
-$('startPractice').addEventListener('click', () => { unlockAudio(); startLevel(game.sel, true); });
+// con canción propia, se carga antes de empezar
+async function playSel(practice) { unlockAudio(); game.songId = await prepareSong(defs[game.sel]); game.songReady = true; startLevel(game.sel, practice); }
+$('startLevel').addEventListener('click', () => playSel(false));
+$('startPractice').addEventListener('click', () => playSel(true));
 $('pauseBtn').addEventListener('click', () => pause());
 $('resumeBtn').addEventListener('click', () => resume());
 $('restartBtn').addEventListener('click', () => restartLevel());
 $('quitBtn').addEventListener('click', () => { quitToLevels(); });
-$('doneNext').addEventListener('click', () => { click(); startLevel(game.sel + 1, false); });
+$('doneNext').addEventListener('click', () => { click(); game.sel++; playSel(false); });
 $('doneRetry').addEventListener('click', () => { click(); game.attempts = 0; restartLevel(); });
 $('doneLevels').addEventListener('click', () => { quitToLevels(); });
 function quitToLevels() {
@@ -795,6 +842,7 @@ window.__nd3d = { game, demo, World, save, loop, dev };
 // API para módulos que se cargan después (src/editor.js): ver docs en el README.
 window.ND3D = Object.assign(window.ND3D || {}, {
   World, game, save, persist, showScreen, startCustom, previewLevel, click, unlockAudio,
+  songOf,
   backToMenu() { previewLevel(game.sel); showScreen('menu'); },
 });
 window.dispatchEvent(new Event('nd3d-ready'));
