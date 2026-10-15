@@ -608,18 +608,32 @@ function updateHud(s) {
 
 // ------------------------------------------------------------------ entrada
 const JUMP_KEYS = new Set(['Space', 'ArrowUp', 'KeyW']);
-function down(src) {
+// Momento real de la pulsación: e.timeStamp es cuándo la registró el sistema (misma base que performance.now()).
+// Con pocos Hz el navegador puede entregar el evento varios ms después; así el salto cae en el paso de la física
+// que toca y la jugabilidad es la misma a 30 que a 240 Hz.
+function inputTime(e) {
+  const now = performance.now();
+  const t = e && e.timeStamp;
+  return t > 0 && t <= now && now - t < 250 ? t : now;
+}
+function enqueue(ev) {
+  const q = game.queue;
+  let i = q.length;
+  while (i > 0 && q[i - 1].t > ev.t) i--;
+  q.splice(i, 0, ev);
+}
+function down(src, e) {
   if (game.held.has(src)) return;
   game.held.add(src);
-  if (game.screen === 'play' && !game.paused) game.queue.push({ t: performance.now(), down: true });
+  if (game.screen === 'play' && !game.paused) enqueue({ t: inputTime(e), down: true });
 }
-function up(src) {
+function up(src, e) {
   if (!game.held.delete(src)) return;
-  if (game.held.size === 0 && game.screen === 'play' && !game.paused) game.queue.push({ t: performance.now(), down: false });
+  if (game.held.size === 0 && game.screen === 'play' && !game.paused) enqueue({ t: inputTime(e), down: false });
 }
 window.addEventListener('keydown', (e) => {
   if (JUMP_KEYS.has(e.code)) {
-    if (game.screen === 'play') { e.preventDefault(); if (!e.repeat) down(e.code); }
+    if (game.screen === 'play') { e.preventDefault(); if (!e.repeat) down(e.code, e); }
     return;
   }
   if (e.repeat) return;
@@ -651,13 +665,13 @@ window.addEventListener('keydown', (e) => {
       break;
   }
 });
-window.addEventListener('keyup', (e) => { if (JUMP_KEYS.has(e.code)) up(e.code); });
+window.addEventListener('keyup', (e) => { if (JUMP_KEYS.has(e.code)) up(e.code, e); });
 window.addEventListener('pointerdown', (e) => {
   if (game.screen !== 'play' || e.target.closest('button')) return;
-  down('p' + e.pointerId);
+  down('p' + e.pointerId, e);
 });
-window.addEventListener('pointerup', (e) => up('p' + e.pointerId));
-window.addEventListener('pointercancel', (e) => up('p' + e.pointerId));
+window.addEventListener('pointerup', (e) => up('p' + e.pointerId, e));
+window.addEventListener('pointercancel', (e) => up('p' + e.pointerId, e));
 window.addEventListener('blur', () => { for (const k of Array.from(game.held)) up(k); if (game.screen === 'play') pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && game.screen === 'play') pause(); });
 window.addEventListener('resize', () => World.resize());
