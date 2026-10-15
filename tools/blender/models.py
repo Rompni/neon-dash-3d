@@ -615,14 +615,26 @@ def cube_shell(rn, r, M, body='c1', s=0.86, bev=0.06, t=0.05, plates=True):
 
 
 def build_cube(M, x):
-    """Clásico: cuerpo con aristas de neón, cara cuadrada con ojos y boca que brillan."""
+    """Clásico: el emblema del juego. Visor oscuro con una doble flecha de neón (">>", el dash) que mira
+    hacia delante, una línea de pulso debajo y muescas en las esquinas de la placa."""
     r = root('cubo', x)
     y = cube_shell('cubo', r, M)
     box('cubo_frente', (0.68, 0.04, 0.68), (0, y - 0.012, 0), r, M['c1'], bev=0.016)
     y -= 0.03
-    for s in (-1, 1):
-        eye(f'cubo_ojo{s}', s * 0.15, 0.1, 0.13, 0.13, y, r, M, sock=0.07)
-    eye('cubo_boca', 0, -0.15, 0.4, 0.07, y, r, M, sock=0.07)
+    # visor: rombo achatado oscuro
+    fpoly('cubo_visor', [(-0.3, 0.0), (-0.2, 0.2), (0.24, 0.2), (0.32, 0.0), (0.24, -0.2), (-0.2, -0.2)], y, 0.03, r, M['dark'], bev=0.01)
+    # doble flecha
+    def chevron(cx, w=0.17, h=0.28, t=0.075):
+        return [(cx - w / 2, h / 2), (cx - w / 2 + t, h / 2), (cx + w / 2, 0.0), (cx - w / 2 + t, -h / 2), (cx - w / 2, -h / 2), (cx + w / 2 - t, 0.0)]
+    for i, cx in enumerate((-0.06, 0.12)):
+        fpoly(f'cubo_flecha{i}', chevron(cx), y - 0.02, 0.03, r, M['neon'])
+    # línea de pulso bajo el visor
+    fpoly('cubo_pulso', [(-0.24, -0.27), (-0.08, -0.27), (-0.03, -0.235), (0.02, -0.29), (0.06, -0.27), (0.24, -0.27), (0.24, -0.25), (0.07, -0.25),
+                         (0.02, -0.265), (-0.03, -0.21), (-0.09, -0.25), (-0.24, -0.25)], y, 0.025, r, M['neon'])
+    # muescas en las esquinas
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            fbox(f'cubo_muesca{sx}{sz}', 0.07, 0.07, sx * 0.27, sz * 0.27, y, 0.02, r, M['dark'], rot=math.radians(45))
     return r
 
 

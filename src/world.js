@@ -401,14 +401,22 @@ const CITY_VS = `varying vec3 vLocal; varying vec3 vWorld; varying float vSeed;
   }`;
 const CITY_FS = `uniform vec3 uBody; uniform vec3 uWin; uniform vec3 uFog; uniform float uFogD; uniform float uBeat;
   varying vec3 vLocal; varying vec3 vWorld; varying float vSeed;
-  float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  // hash sin seno (estable con números grandes): el de sin() amplificaba diferencias mínimas de la semilla
+  // interpolada y cada píxel de una ventana salía encendido o apagado por su cuenta (ventanas con ruido)
+  float hash(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
   void main(){
     vec3 c = uBody;
+    float seed = mod(floor(vSeed + 0.5), 997.0);
     vec2 g = vec2(vWorld.x + vWorld.z * 0.7, vWorld.y) * vec2(1.4, 1.8);
     vec2 cell = floor(g), f = fract(g);
-    float win = step(0.22, f.x) * step(f.x, 0.78) * step(0.25, f.y) * step(f.y, 0.75);
-    float lit = step(0.78, hash(cell + vSeed));
-    c += uWin * win * lit * (0.9 + 0.5 * hash(cell * 1.3));
+    // bordes de ventana suavizados según el tamaño del píxel, y a lo lejos (ventana más pequeña que un píxel)
+    // se funden con su brillo medio: si no, se ven como ruido y escalones
+    vec2 fw = max(fwidth(g), vec2(1e-4));
+    vec2 wa = smoothstep(vec2(0.22, 0.25) - fw, vec2(0.22, 0.25) + fw, f) * (1.0 - smoothstep(vec2(0.78, 0.75) - fw, vec2(0.78, 0.75) + fw, f));
+    float win = wa.x * wa.y;
+    float lit = step(0.78, hash(cell + vec2(seed * 1.7, seed * 3.1)));
+    float near = 1.0 - smoothstep(0.25, 0.6, max(fw.x, fw.y));
+    c += uWin * mix(0.28 * 0.22 * 1.15, win * lit * (0.9 + 0.5 * hash(cell * 1.3)), near);
     // aristas: cerca del borde en dos ejes a la vez (cada cara entera está en ±0.5 de uno solo)
     float ex = smoothstep(0.465, 0.5, abs(vLocal.x)), ez = smoothstep(0.465, 0.5, abs(vLocal.z));
     float rim = smoothstep(0.985, 1.0, vLocal.y) * max(ex, ez) + 0.4 * ex * ez;
@@ -512,8 +520,17 @@ const MIX_FS = `uniform sampler2D tDiffuse; uniform sampler2D tBloom; uniform sa
     gl_FragColor = texture2D(tDiffuse, vUv) + uOn * vec4(glow, 0.0);
   }`;
 const VS_UV = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }';
+// Antialiasing (MSAA) en las imágenes intermedias del posproceso: el antialias del canvas no se aplica cuando
+// se dibuja a una textura, y sin él las aristas finas de neón salen en escalones que el bloom convierte en grumos.
+const MSAA = 4;
+function msaaTarget() { return new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: MSAA }); }
+function setMsaa(n) {
+  for (const comp of [W.composer, W.bloomComposer]) for (const t of [comp.renderTarget1, comp.renderTarget2]) {
+    if (t.samples !== n) { t.samples = n; t.dispose(); }
+  }
+}
 function initPost() {
-  const b = W.bloomComposer = new EffectComposer(W.renderer);
+  const b = W.bloomComposer = new EffectComposer(W.renderer, msaaTarget());
   b.renderToScreen = false;
   b.addPass(new RenderPass(W.scene, W.camera));
   // el pase de bloom devuelve imagen + brillo: se guarda la imagen antes para quedarse sólo con el brillo
@@ -521,7 +538,7 @@ function initPost() {
   b.addPass(W.bloomBase);
   W.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.85, 0.28, 0.8);
   b.addPass(W.bloom);
-  const c = W.composer = new EffectComposer(W.renderer);
+  const c = W.composer = new EffectComposer(W.renderer, msaaTarget());
   c.addPass(new RenderPass(W.scene, W.camera));
   W.mix = new ShaderPass({ uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, tBloomBase: { value: null }, uOn: { value: 1 } }, vertexShader: VS_UV, fragmentShader: MIX_FS });
   c.addPass(W.mix);
@@ -567,6 +584,7 @@ function setResolution(r) {
 }
 function setQuality(q) {
   W.quality = q;
+  setMsaa(q === 'baja' ? 0 : MSAA);
   resize();
 }
 function resize() {
@@ -1380,9 +1398,14 @@ function cubeFace(c1, c2) {
     g.fillStyle = '#0a0a14'; g.fillRect(S * 0.06, S * 0.06, S * 0.88, S * 0.88);
     g.fillStyle = c1; g.fillRect(S * 0.14, S * 0.14, S * 0.72, S * 0.72);
     g.fillStyle = c2; g.fillRect(S * 0.24, S * 0.24, S * 0.52, S * 0.52);
+    // emblema del juego: doble flecha ">>" (el dash)
     g.fillStyle = '#0a0a14';
-    g.fillRect(S * 0.31, S * 0.34, S * 0.13, S * 0.14); g.fillRect(S * 0.56, S * 0.34, S * 0.13, S * 0.14);
-    g.fillRect(S * 0.31, S * 0.58, S * 0.38, S * 0.08);
+    for (const cx of [0.42, 0.58]) {
+      g.beginPath();
+      g.moveTo(S * (cx - 0.09), S * 0.34); g.lineTo(S * (cx - 0.02), S * 0.34); g.lineTo(S * (cx + 0.09), S * 0.5);
+      g.lineTo(S * (cx - 0.02), S * 0.66); g.lineTo(S * (cx - 0.09), S * 0.66); g.lineTo(S * (cx + 0.02), S * 0.5);
+      g.closePath(); g.fill();
+    }
   });
 }
 function ballTex(c1, c2) {
