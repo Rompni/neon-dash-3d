@@ -1176,29 +1176,35 @@ function updateStorm(view, dt) {
   }
 }
 // Partículas del ambiente según el fondo (ceniza, nieve, burbujas, luciérnagas, lluvia, datos).
+// Partículas por fotograma independientes de los Hz de la pantalla: p es la media por fotograma a 60 Hz;
+// a 144 Hz salen menos por fotograma y a 30 Hz más, para que por segundo sean las mismas.
+function spawnN(p) {
+  const m = p * (W.spawnK || 1);
+  return Math.floor(m) + (Math.random() < m - Math.floor(m) ? 1 : 0);
+}
 function ambientParticles(view) {
   const cx = view.camX / BU, fy = W.floorY, r = Math.random;
   switch (W.theme) {
     case 'volcan':
-      if (r() < 0.5) particle(cx - 12 + r() * 34, fy + r() * 1.5, -6 - r() * 22, (r() - 0.5) * 0.6, 1.2 + r() * 2, 0, 2.5, 0.18 + r() * 0.15, r() < 0.5 ? '#ff6b3d' : '#ffb13b', { drag: 0.2 });
+      for (let n = spawnN(0.5); n > 0; n--) particle(cx - 12 + r() * 34, fy + r() * 1.5, -6 - r() * 22, (r() - 0.5) * 0.6, 1.2 + r() * 2, 0, 2.5, 0.18 + r() * 0.15, r() < 0.5 ? '#ff6b3d' : '#ffb13b', { drag: 0.2 });
       break;
     case 'glaciar':
-      if (r() < 0.8) particle(cx - 14 + r() * 40, fy + 14, -3 - r() * 25, -0.6 - r() * 0.6, -1.2 - r() * 0.8, 0, 9, 0.07 + r() * 0.07, '#cfe8ff', { drag: 0 });
+      for (let n = spawnN(0.8); n > 0; n--) particle(cx - 14 + r() * 40, fy + 14, -3 - r() * 25, -0.6 - r() * 0.6, -1.2 - r() * 0.8, 0, 9, 0.07 + r() * 0.07, '#cfe8ff', { drag: 0 });
       break;
     case 'oceano':
-      if (r() < 0.45) particle(cx - 12 + r() * 36, fy, -3 - r() * 25, (r() - 0.5) * 0.3, 1 + r() * 1.5, 0, 7, 0.08 + r() * 0.12, '#9fe8ff', { drag: 0 });
+      for (let n = spawnN(0.45); n > 0; n--) particle(cx - 12 + r() * 36, fy, -3 - r() * 25, (r() - 0.5) * 0.3, 1 + r() * 1.5, 0, 7, 0.08 + r() * 0.12, '#9fe8ff', { drag: 0 });
       break;
     case 'bosque':
-      if (r() < 0.25) particle(cx - 10 + r() * 32, fy + 0.5 + r() * 6, -4 - r() * 20, (r() - 0.5) * 0.8, (r() - 0.5) * 0.8, 0, 3, 0.09 + r() * 0.06, r() < 0.6 ? '#d9ff5a' : '#7affb0', { drag: 0 });
+      for (let n = spawnN(0.25); n > 0; n--) particle(cx - 10 + r() * 32, fy + 0.5 + r() * 6, -4 - r() * 20, (r() - 0.5) * 0.8, (r() - 0.5) * 0.8, 0, 3, 0.09 + r() * 0.06, r() < 0.6 ? '#d9ff5a' : '#7affb0', { drag: 0 });
       break;
     case 'tormenta':
-      for (let i = 0; i < 3; i++) particle(cx - 12 + r() * 40, fy + 16, -2 - r() * 20, -3, -26, 0, 0.8, 0.04, '#8fa8d8', { drag: 0, square: true });
+      for (let n = spawnN(3); n > 0; n--) particle(cx - 12 + r() * 40, fy + 16, -2 - r() * 20, -3, -26, 0, 0.8, 0.04, '#8fa8d8', { drag: 0, square: true });
       break;
     case 'circuito':
-      if (r() < 0.3) { const up = r() < 0.5; particle(cx - 8 + r() * 30, up ? fy : fy + 12, -8 - r() * 20, 0, up ? 6 : -6, 0, 2, 0.1, r() < 0.5 ? '#3bffd0' : '#3b8bff', { drag: 0, square: true }); }
+      for (let n = spawnN(0.3); n > 0; n--) { const up = r() < 0.5; particle(cx - 8 + r() * 30, up ? fy : fy + 12, -8 - r() * 20, 0, up ? 6 : -6, 0, 2, 0.1, r() < 0.5 ? '#3bffd0' : '#3b8bff', { drag: 0, square: true }); }
       break;
     case 'desierto':
-      if (r() < 0.3) particle(cx - 14 + r() * 36, fy + r() * 2, -3 - r() * 18, 3 + r() * 3, (r() - 0.3) * 0.6, 0, 3, 0.05 + r() * 0.05, '#ffd9a0', { drag: 0 });
+      for (let n = spawnN(0.3); n > 0; n--) particle(cx - 14 + r() * 36, fy + r() * 2, -3 - r() * 18, 3 + r() * 3, (r() - 0.3) * 0.6, 0, 3, 0.05 + r() * 0.05, '#ffd9a0', { drag: 0 });
       break;
   }
 }
@@ -2028,6 +2034,7 @@ const CAM_MODE = { cube: [1, 1.3, -2.2], ball: [1.04, 1.0, -2.6], ship: [1.12, 0
  */
 function frame(view, dt) {
   dt = Math.max(0, Math.min(0.1, dt || 0));
+  W.spawnK = dt * 60;
   W.time += dt;
   const t = W.time;
   const L = W.level;
@@ -2173,17 +2180,17 @@ function frame(view, dt) {
     if (view.mode === 'swing') pl.rotors.forEach((r, i) => { r.rotation.y += dt * 28 * (i % 2 ? -1 : 1); });
     // propulsión del robot mientras se mantiene el salto
     if (view.mode === 'robot' && view.boost > 0 && !view.grounded) {
-      for (let i = 0; i < 2; i++) particle(px + (Math.random() - 0.5) * 0.35 * sc, py - 0.5 * sc * (view.flip || 1), (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.6, -(view.flip || 1) * (2 + Math.random() * 2), 0, 0.3, 0.13, i ? '#ffb13b' : '#ffffff', { drag: 3 });
+      for (let i = spawnN(2); i > 0; i--) particle(px + (Math.random() - 0.5) * 0.35 * sc, py - 0.5 * sc * (view.flip || 1), (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.6, -(view.flip || 1) * (2 + Math.random() * 2), 0, 0.3, 0.13, i ? '#ffb13b' : '#ffffff', { drag: 3 });
     }
     if (view.mode === 'robot' || view.mode === 'spider') animateRig(pl, view.mode, view.garage ? t * 3 : px, view.garage || !!view.grounded, dt);
-    if (PIXEL_TRAIL[view.mode] && !view.garage && Math.random() < 0.55) {
+    if (PIXEL_TRAIL[view.mode] && !view.garage) for (let n = spawnN(0.55); n > 0; n--) {
       const [ox, oy] = PIXEL_TRAIL[view.mode];
       particle(px + ox * sc + (Math.random() - 0.5) * 0.15, py + oy * sc * fl + (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.3, -1.5 - Math.random() * 1.5, (Math.random() - 0.5) * 0.4 + oy * 0.8 * fl, 0, 0.45 + Math.random() * 0.25, 0.1 + Math.random() * 0.07, Math.random() < 0.7 ? pl.c2 : pl.c1, { drag: 1.5, square: true });
     }
     if (view.mode === 'ship') {
       const fc = flameColor(t);
       pl.flame.uniforms.uColor.value.copy(fc);
-      if (Math.random() < 0.7) particle(px - 0.55 * sc, py - 0.02 * fl, 0.2, -2 - Math.random() * 2, (Math.random() - 0.5), 0, 0.35, 0.12, fc, { drag: 2, square: W.cos.flame === 'pixeles' });
+      for (let n = spawnN(0.7); n > 0; n--) particle(px - 0.55 * sc, py - 0.02 * fl, 0.2, -2 - Math.random() * 2, (Math.random() - 0.5), 0, 0.35, 0.12, fc, { drag: 2, square: W.cos.flame === 'pixeles' });
     }
     pl.light.intensity = 1.6 + beat * 1.2;
   }
@@ -2211,9 +2218,13 @@ function frame(view, dt) {
   W.wasGrounded = !!view.grounded;
   // estela (streak): los últimos ~0,2 s de recorrido, salvo en la onda (que ya deja la suya)
   const sp = W.streakPts;
-  if (!pl.group.visible || view.mode === 'wave' || (sp.length && px < sp[sp.length - 2] - 1)) sp.length = 0;
-  if (pl.group.visible && view.mode !== 'wave') { sp.push(px, py); if (sp.length > 26) sp.splice(0, 2); }
-  if (view.garage) sp.length = 0;
+  // los últimos 0,2 s (por tiempo, no por fotogramas: igual de larga a 30 que a 240 Hz)
+  const st = W.streakT || (W.streakT = []);
+  if (!pl.group.visible || view.mode === 'wave' || view.garage || (sp.length && px < sp[sp.length - 2] - 1)) { sp.length = 0; st.length = 0; }
+  if (pl.group.visible && view.mode !== 'wave' && !view.garage) {
+    sp.push(px, py); st.push(t);
+    while (st.length > 2 && (t - st[0] > 0.2 || st.length > 120)) { st.shift(); sp.splice(0, 2); }
+  }
   const trailKind = W.cos.trail;
   if (sp.length > 4 && (trailKind === 'clasica' || trailKind === 'arcoiris')) {
     ribbon(pl.streak, sp, (view.mini ? 0.12 : 0.2) * (1 - outro));
@@ -2221,9 +2232,9 @@ function frame(view, dt) {
     else pl.streak.mesh.material.color.set(pl.c2).multiplyScalar(2.2);
   } else pl.streak.mesh.visible = false;
   if (pl.group.visible && !view.garage && view.mode !== 'wave' && !view.dead) {
-    if (trailKind === 'pixeles' && Math.random() < 0.6) particle(px - 0.3 * sc, py + (Math.random() - 0.5) * 0.3, 0, -1.2, (Math.random() - 0.5) * 0.5, 0, 0.5, 0.11, Math.random() < 0.7 ? pl.c2 : pl.c1, { drag: 1.5, square: true });
-    else if (trailKind === 'chispas' && Math.random() < 0.7) particle(px - 0.2 * sc, py + (Math.random() - 0.5) * 0.4, 0, -2 - Math.random(), (Math.random() - 0.5) * 2, (Math.random() - 0.5), 0.35, 0.09, Math.random() < 0.5 ? '#ffffff' : pl.c1, { drag: 3 });
-    else if (trailKind === 'fuego' && Math.random() < 0.8) particle(px - 0.25 * sc, py - 0.2 * sc + Math.random() * 0.3, 0, -1.5, 1 + Math.random() * 1.5, 0, 0.45, 0.16, Math.random() < 0.5 ? '#ff6b1c' : '#ffd23a', { drag: 2 });
+    if (trailKind === 'pixeles') for (let n = spawnN(0.6); n > 0; n--) particle(px - 0.3 * sc, py + (Math.random() - 0.5) * 0.3, 0, -1.2, (Math.random() - 0.5) * 0.5, 0, 0.5, 0.11, Math.random() < 0.7 ? pl.c2 : pl.c1, { drag: 1.5, square: true });
+    else if (trailKind === 'chispas') for (let n = spawnN(0.7); n > 0; n--) particle(px - 0.2 * sc, py + (Math.random() - 0.5) * 0.4, 0, -2 - Math.random(), (Math.random() - 0.5) * 2, (Math.random() - 0.5), 0.35, 0.09, Math.random() < 0.5 ? '#ffffff' : pl.c1, { drag: 3 });
+    else if (trailKind === 'fuego') for (let n = spawnN(0.8); n > 0; n--) particle(px - 0.25 * sc, py - 0.2 * sc + Math.random() * 0.3, 0, -1.5, 1 + Math.random() * 1.5, 0, 0.45, 0.16, Math.random() < 0.5 ? '#ff6b1c' : '#ffd23a', { drag: 2 });
   }
   pl.halo.visible = !!W.cos.glow && pl.group.visible;
   if (pl.halo.visible) { pl.halo.material.uniforms.uColor.value.set(W.cos.glow); pl.halo.material.uniforms.uAlpha.value = 0.75 + beat * 0.3; }
