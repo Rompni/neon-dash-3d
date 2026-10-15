@@ -1,5 +1,5 @@
 /*
- * NEON DASH 3D — progreso y recompensas (como en Geometry Dash):
+ * NEON DASH 3D — progreso y recompensas:
  * estrellas por completar niveles, orbes por avanzar (se gastan en la tienda), diamantes (cofres, misiones y
  * logros), tienda de cosméticos, cofres con tiempo de espera, logros, misiones diarias y monedas de usuario
  * (las de los niveles del editor, aparte de las monedas secretas de los niveles principales).
@@ -134,7 +134,7 @@ function openChest(k) {
 function fmtTime(ms) { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} h ${m} min` : m ? `${m} min ${s % 60} s` : `${s % 60} s`; }
 
 // ------------------------------------------------------------------ eventos de la partida
-// Orbes por nivel: estrellas × 30, repartidos según el mejor % en modo normal (como en GD).
+// Orbes por nivel: estrellas × 30, repartidos según el mejor % en modo normal .
 function levelOrbsTotal(def) { return (def.stars || 1) * 30; }
 const Meta = {
   jump() { save.stats.jumps++; },
@@ -261,7 +261,7 @@ setInterval(() => {
 }, 1000);
 
 // ------------------------------------------------------------------ música propia por nivel
-// Como las canciones de Newgrounds en GD: cualquier MP3/OGG del equipo, guardado en IndexedDB.
+// Cualquier MP3/OGG del equipo como música de un nivel, guardado en IndexedDB.
 function songFor(def) { const s = save.songs[def.id]; return s && s.key ? s : null; }
 async function prepareSong(def) {
   const s = songFor(def);

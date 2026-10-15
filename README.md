@@ -13,7 +13,7 @@ mundo 3D con cámara en perspectiva, bloom, ciudad nocturna, partículas y model
   Telaraña, Engranaje, Vértigo, ZigZag y Apex (el final demonio).
 - **14 fondos:** ciudad, montañas, atardecer, cristales, espacio, vacío, volcán, bosque, desierto, glaciar (con aurora), circuito,
   océano, ruinas y tormenta (con relámpagos). Cada nivel tiene el suyo y en el editor se puede elegir cualquiera.
-- **Triggers de grupo** (como en GD): mover, girar, apagar/encender, desvanecer, spawn y follow sobre objetos reales (con su
+- **Triggers de grupo:** mover, girar, apagar/encender, desvanecer, spawn y follow sobre objetos reales (con su
   colisión), y triggers de cámara (zoom, desplazamiento, giro).
 - **Modos:** cubo, nave, bola, ovni, onda, robot, araña, swing y dual (gemelo con la gravedad contraria).
 - **Garaje:** 96 modelos de Blender: 12 estilos por modo (Clásico, Demonio, Tecno, Sonrisa, Pinchos, Núcleo, Cristal, Cuernos, Blindado, Runa, Ojos y Equis). Cada estilo se desbloquea para todos los modos al recoger cierto número de monedas y trae sus colores (o se usan las 6 paletas del jugador).

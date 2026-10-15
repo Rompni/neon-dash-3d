@@ -156,7 +156,7 @@ function mergeBlocks(blocks) {
   }
   return out;
 }
-// Contorno exterior de la unión de bloques (como en GD): sólo se dibuja neón donde un lado es bloque y el otro
+// Contorno exterior de la unión de bloques: sólo se dibuja neón donde un lado es bloque y el otro
 // aire, así una pared hecha de muchas columnas se ve como una sola pieza y no como una rejilla brillante.
 // Devuelve segmentos [x0, y0, x1, y1] (en unidades de la física) horizontales y verticales, ya unidos.
 function unionIntervals(list) {
@@ -1608,7 +1608,7 @@ function tame(root) {
   });
 }
 // Contorno oscuro (casco invertido): una copia algo mayor de cada pieza principal que sólo pinta sus caras de
-// atrás. Como los iconos de GD, hace que el jugador se lea bien sobre el neón y el bloom.
+// atrás. Hace que el jugador se lea bien sobre el neón y el bloom.
 const OUTLINE = new THREE.MeshBasicMaterial({ color: 0x05040c, side: THREE.BackSide });
 function outline(root) {
   const parts = [];
