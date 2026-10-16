@@ -589,6 +589,11 @@ function hidePlayerFromBloom(on) {
   });
 }
 function renderFrame(dt) {
+  // si cambió el tamaño de la ventana o el zoom del navegador (densidad de píxeles) sin que llegara el evento
+  // resize, se reajusta todo antes de dibujar: con tamaños distintos el brillo cubría sólo un rectángulo
+  if (window.innerWidth !== W.sizeW || window.innerHeight !== W.sizeH || (window.devicePixelRatio || 1) !== W.sizeDpr) resize();
+  W.renderer.setScissorTest(false);
+  W.renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
   const bloomOn = W.quality !== 'baja';
   W.mix.uniforms.uOn.value = bloomOn ? 1 : 0;
   if (bloomOn) {
@@ -625,6 +630,7 @@ function resize() {
   W.camera.aspect = w / h;
   W.camera.updateProjectionMatrix();
   W.particles.material.uniforms.uScale.value = h * pr * 0.5;
+  W.sizeW = w; W.sizeH = h; W.sizeDpr = window.devicePixelRatio || 1;
 }
 
 // ------------------------------------------------------------------ nivel
