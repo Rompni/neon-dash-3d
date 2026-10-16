@@ -1,6 +1,6 @@
 # Neon Dash 3D — estado y cómo continuar
 
-Última actualización: 15 de octubre de 2026 (commit `678881c`, rama `master`, sin remoto).
+Última actualización: 15 de octubre de 2026 (rama `main`, en GitHub: git@github.com:Rompni/neon-dash-3d.git).
 
 ## Qué es
 
