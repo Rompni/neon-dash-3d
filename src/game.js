@@ -689,11 +689,23 @@ function unlockAudio() {
 }
 function click() { Sound.sfx('click'); }
 
+// Cambio de nivel en el selector: la tarjeta cambia al momento y el fondo 3D con un fundido corto (la
+// construcción del nivel ocurre con la pantalla tapada, así no se nota el tirón).
+let selToken = 0;
 function selectLevel(i) {
   const n = defs.length;
+  const dir = i > game.sel ? 1 : -1;
   game.sel = ((i % n) + n) % n;
   renderLevelCard();
-  previewLevel(game.sel);
+  const card = document.querySelector('.level-card');
+  if (card) { card.classList.remove('swap-l', 'swap-r'); void card.offsetWidth; card.classList.add(dir > 0 ? 'swap-r' : 'swap-l'); }
+  const fade = $('fade'), tok = ++selToken;
+  fade.classList.add('on');
+  setTimeout(() => {
+    if (tok !== selToken) return; // se pulsó otra vez: sólo se construye el último
+    previewLevel(game.sel);
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (tok === selToken) fade.classList.remove('on'); }));
+  }, 170);
 }
 // Duración del nivel (s): lo que tarda en llegar a la meta según los portales de velocidad.
 const durCache = new Map();
@@ -841,6 +853,7 @@ World.setDesigns(save.designs, modeColors());
 World.loadModels(() => { World.setPlayerColors(...colorsOfPlayer()); if (game.screen === 'garage') renderGarage(); });
 previewLevel(0);
 showScreen('menu');
+World.warmOutlines(defs);
 const loading = $('loading');
 loading.style.opacity = '0';
 setTimeout(() => loading.remove(), 500);

@@ -25,7 +25,12 @@ function juego() {
       }).join('\n');
     },
     handleHotUpdate({ file, server }) {
-      if (JUEGO.some((f) => path.join(SRC, f) === path.normalize(file))) server.ws.send({ type: 'full-reload' });
+      if (!JUEGO.some((f) => path.join(SRC, f) === path.normalize(file))) return;
+      // el módulo virtual no se invalida solo: sin esto se seguiría sirviendo la versión anterior
+      const mod = server.moduleGraph.getModuleById(RID);
+      if (mod) server.moduleGraph.invalidateModule(mod);
+      server.ws.send({ type: 'full-reload' });
+      return [];
     },
   };
 }

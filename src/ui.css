@@ -22,6 +22,13 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 body { font-family: var(--font); font-weight: 500; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: none; }
 #app { position: fixed; inset: 0; }
 #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+/* fundido entre fondos al cambiar de nivel */
+#fade { position: absolute; inset: 0; background: var(--ink); opacity: 0; pointer-events: none; transition: opacity 0.17s ease; }
+#fade.on { opacity: 0.92; }
+.level-card.swap-r { animation: swapR 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.level-card.swap-l { animation: swapL 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes swapR { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes swapL { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
 .i { width: 1.05em; height: 1.05em; flex: none; vertical-align: -0.16em; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
 .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; pointer-events: none; }

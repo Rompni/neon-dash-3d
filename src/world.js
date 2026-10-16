@@ -234,7 +234,14 @@ function inTri(px, py, t, tol) {
 // Un lado de bloque tapado por una rampa, o un lado de rampa pegado a un bloque, no se dibuja.
 function outlineGeometry(rects, slopes, colorAt) {
   const tris = slopes.map(slopeTri);
-  const inRect = (x, y) => rects.some((r) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1);
+  // índice por columnas de 2 bloques: cada consulta mira sólo los bloques y rampas cercanos (antes, todos)
+  const CELL = BU * 2, rectGrid = new Map(), triGrid = new Map();
+  const put = (grid, x0, x1, v) => { for (let c = Math.floor(x0 / CELL); c <= Math.floor(x1 / CELL); c++) { let l = grid.get(c); if (!l) grid.set(c, (l = [])); l.push(v); } };
+  rects.forEach((r) => put(rectGrid, r.x0, r.x1, r));
+  tris.forEach((t, k) => put(triGrid, Math.min(t[0][0], t[1][0], t[2][0]), Math.max(t[0][0], t[1][0], t[2][0]), k));
+  const near = (grid, x) => grid.get(Math.floor(x / CELL)) || [];
+  const inRect = (x, y) => near(rectGrid, x).some((r) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1);
+  const inAnyTri = (x, y, skip) => near(triGrid, x).some((k) => k !== skip && inTri(x, y, tris[k], 0.5));
   const STEP = BU / 2;
   const keep = [];
   const pieces = (ax, ay, bx, by, test) => {
@@ -249,7 +256,7 @@ function outlineGeometry(rects, slopes, colorAt) {
       }
     }
   };
-  for (const [ax, ay, bx, by] of outlineSegments(rects)) pieces(ax, ay, bx, by, (x, y) => !tris.some((t) => inTri(x, y, t, 0.5)));
+  for (const [ax, ay, bx, by] of outlineSegments(rects)) pieces(ax, ay, bx, by, (x, y) => !inAnyTri(x, y, -1));
   tris.forEach((t, k) => {
     for (let i = 0; i < 3; i++) {
       const [ax, ay] = t[i], [bx, by] = t[(i + 1) % 3];
@@ -260,7 +267,7 @@ function outlineGeometry(rects, slopes, colorAt) {
       if ((ax - cx) * nx + (ay - cy) * ny < 0) { nx = -nx; ny = -ny; }
       pieces(ax, ay, bx, by, (x, y) => {
         const ox = x + nx * 2, oy = y + ny * 2;
-        return !inRect(ox, oy) && !tris.some((u, j) => j !== k && inTri(ox, oy, u, 0.5));
+        return !inRect(ox, oy) && !inAnyTri(ox, oy, k);
       });
     }
   });
@@ -621,6 +628,23 @@ function resize() {
 }
 
 // ------------------------------------------------------------------ nivel
+const OUTLINE_CACHE = new WeakMap(); // def → geometría del contorno de neón
+function outlineFor(L) {
+  const def = L.def;
+  if (!OUTLINE_CACHE.has(def)) {
+    const rects = L.objs.filter((o) => o.t === 'block' && !o.grp).map((o) => ({ x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1 }));
+    OUTLINE_CACHE.set(def, outlineGeometry(rects, L.objs.filter((o) => o.t === 'slope' && !o.grp), (x) => colorsAt(def, x).obj.multiplyScalar(1.7)));
+  }
+  return OUTLINE_CACHE.get(def);
+}
+// Calcula de antemano los contornos (en los ratos libres del navegador): así el primer cambio a cada nivel en el
+// selector no tiene que hacerlo.
+function warmOutlines(defs) {
+  const idle = window.requestIdleCallback || ((f) => setTimeout(f, 60));
+  let i = 0;
+  const next = () => { if (i >= defs.length) return; const d = defs[i++]; if (!OUTLINE_CACHE.has(d)) outlineFor(Sim.compileLevel(d)); idle(next); };
+  idle(next);
+}
 function disposeLevel() {
   if (!W.levelGroup) return;
   W.scene.remove(W.levelGroup);
@@ -664,10 +688,10 @@ function buildLevel(L) {
     grp.add(body);
   }
   // bordes de neón: sólo el contorno exterior de todos los bloques juntos
-  const outline = outlineGeometry(blocks.map((o) => ({ x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1 })), L.objs.filter((o) => o.t === 'slope' && !o.grp), (x) => objCol(x).multiplyScalar(1.7));
+  // el contorno se calcula una vez por nivel (es lo más caro de construir) y se reutiliza al volver a él
+  const outline = outlineFor(L);
   if (outline) {
-    const mesh = new THREE.Mesh(outline, MAT.neonV);
-    mesh.userData.ownGeo = true;
+    const mesh = new THREE.Mesh(outline, MAT.neonV); // geometría en caché: no se libera con el nivel
     grp.add(mesh);
   }
   // pinchos: pirámides facetadas con aristas de neón
@@ -2372,4 +2396,4 @@ function drawHitboxes(boxes) {
 function setCosmetics(c) { Object.assign(W.cos, c); }
 function setReduceFlash(on) { W.reduceFlash = !!on; }
 
-const World = { W, THEME_NAMES, THEME_BY_LEVEL, setCosmetics, setReduceFlash, setResolution, THEMES, setCheckpoints, setDesigns, hasModel, loadModels, initScene, buildLevel, frame, resize, setQuality, setPlayerColors, colorsAt, FX, particle, BU, MODE_COLOR, SPEED_COLOR, PAD_COLOR };
+const World = { W, warmOutlines, THEME_NAMES, THEME_BY_LEVEL, setCosmetics, setReduceFlash, setResolution, THEMES, setCheckpoints, setDesigns, hasModel, loadModels, initScene, buildLevel, frame, resize, setQuality, setPlayerColors, colorsAt, FX, particle, BU, MODE_COLOR, SPEED_COLOR, PAD_COLOR };
