@@ -2321,7 +2321,11 @@ function frame(view, dt) {
   let ik = view.intro != null ? Math.max(0, 1 - view.intro / 1.5) : 0;
   ik = ik * ik * (3 - 2 * ik);
   cam.position.set(cx + C.s + sway - ik * 6 + (Math.random() - 0.5) * sh, cy + C.e + ik * 5 + (Math.random() - 0.5) * sh, dist * C.d - C.kick * 1.5 + ik * 14);
-  cam.lookAt(tmpV.set(cx + 0.4, cy - 0.1, 0));
+  // en los menús la cámara se acerca o se aleja suavemente según la pantalla (ui-fx.js pone uiCamTarget)
+  const uc = W.uiCam || (W.uiCam = { z: 0, y: 0 }), ut = view.menu && !view.garage ? (W.uiCamTarget || uc) : { z: 0, y: 0 };
+  uc.z += (ut.z - uc.z) * (1 - Math.exp(-dt * 3.2)); uc.y += (ut.y - uc.y) * (1 - Math.exp(-dt * 3.2));
+  cam.position.z += uc.z; cam.position.y += uc.y;
+  cam.lookAt(tmpV.set(cx + 0.4, cy - 0.1 + uc.y * 0.4, 0));
   cam.rotateZ(C.roll);
   if (W.gs) applyCamTrig(cam, W.gs.cam, cx + 0.4, cy - 0.1, C.roll);
   if (view.garage) {

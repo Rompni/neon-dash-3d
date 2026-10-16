@@ -833,7 +833,7 @@
       // Desfase negativo: la canción empieza más tarde que el nivel.
       if (offset >= 0) src.start(when, Math.min(offset, buf.duration));
       else src.start(when - offset, 0);
-      play = { custom: true, id: songId, src, bus, done: false, timer: null, nodes: [bus] };
+      play = { custom: true, id: songId, src, bus, done: false, timer: null, nodes: [bus], when, offset, info, dur: buf.duration };
       return lead * 1000;
     }
     const song = SONGS[songId];
@@ -938,6 +938,15 @@
     if ((play && play.id === key) || (stillWanted && !stillWanted())) return;
     start(key, 0);
   }
+  // Segundo de la canción real que suena ahora (con su bucle), y su ficha de tracks.js; null si no hay.
+  function position() {
+    if (!play || !play.custom || !play.info || !ctx) return null;
+    let p = ctx.currentTime - play.when + Math.max(0, play.offset);
+    if (p < 0) return null;
+    const inf = play.info;
+    if (inf.loop && p > inf.dur) p = inf.bar0 + ((p - inf.bar0) % (inf.dur - inf.bar0));
+    return { t: p, track: inf };
+  }
   function playing() { return play ? (play.id || 'synth') : null; }
 
   function setVolumes(m, s) {
@@ -999,6 +1008,17 @@
         synth(out, t + d, m, len, { wave: 'triangle', cutoff: 9000, v: 0.04, d: 0.06, s: 0.4, r: 0.12, oct: 12 });
       });
       synth(out, t + 0.22, 95, 0.12, { wave: 'triangle', cutoff: 6000, v: 0.025, d: 0.06, s: 0.4, r: 0.12 });
+    } else if (name === 'hover') {
+      // al pasar por encima de un botón: un tic muy suave y agudo
+      synth(out, t, 91, 0.012, { wave: 'sine', cutoff: 8000, v: 0.03, d: 0.02, s: 0.05, r: 0.03 });
+    } else if (name === 'whoosh') {
+      // cambio de pantalla: barrido de ruido que sube
+      const s2 = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+      s2.buffer = noise; fl.type = 'bandpass'; fl.Q.value = 1.4;
+      fl.frequency.setValueAtTime(500, t); fl.frequency.exponentialRampToValueAtTime(4500, t + 0.22);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+      s2.connect(fl); fl.connect(g); g.connect(out); s2.onended = () => g.disconnect();
+      s2.start(t, Math.random()); s2.stop(t + 0.3);
     } else if (name === 'click') {
       synth(out, t, 79, 0.02, { wave: 'triangle', cutoff: 5000, v: 0.08, d: 0.02, s: 0.1, r: 0.03 });
       noiseHit(out, t, 0.03, 'highpass', 7000, 0.7, 0.012);
@@ -1094,5 +1114,5 @@
     return rows;
   }
 
-  root.Sound = { loadTrack, menu, playing, resume, start, stop, sfx, setVolumes, songLength, importSong, prepare, isReady, renderTest, renderAll, songIds: () => Object.keys(SONGS), songs: SONGS, get ctx() { return ctx; } };
+  root.Sound = { loadTrack, menu, playing, position, resume, start, stop, sfx, setVolumes, songLength, importSong, prepare, isReady, renderTest, renderAll, songIds: () => Object.keys(SONGS), songs: SONGS, get ctx() { return ctx; } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

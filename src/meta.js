@@ -189,8 +189,13 @@ function toast(msg) {
 }
 function renderWallet() {
   if (!save.stats || !save.completed) return; // aún sin inicializar (arranque de game.js)
-  const html = `<span title="Estrellas">${ico('star')} ${starsTotal()}</span><span title="Diamantes">${ico('diamond')} ${save.diamonds}</span><span title="Orbes">${ico('orb')} ${save.orbs}</span><span title="Monedas">${ico('coin')} ${totalCoins()}</span>`;
-  document.querySelectorAll('[data-wallet]').forEach((el) => { el.innerHTML = html; });
+  const vals = [starsTotal(), save.diamonds, save.orbs, totalCoins()];
+  const ICONS = [['star', 'Estrellas'], ['diamond', 'Diamantes'], ['orb', 'Orbes'], ['coin', 'Monedas']];
+  document.querySelectorAll('[data-wallet]').forEach((el) => {
+    // la estructura se crea una vez; luego los números suben animados (UIFX.countTo)
+    if (!el.querySelector('b')) el.innerHTML = ICONS.map(([k, n]) => `<span title="${n}" data-cur="${k}">${ico(k)} <b>0</b></span>`).join('');
+    el.querySelectorAll('b').forEach((b, i) => { if (window.UIFX) window.UIFX.countTo(b, vals[i]); else b.textContent = vals[i]; });
+  });
 }
 function renderRewards(tab) {
   game.rewardsTab = tab || game.rewardsTab || 'tienda';
@@ -204,9 +209,8 @@ function renderRewards(tab) {
     for (const cat of ['Estela', 'Muerte', 'Llama', 'Brillo']) {
       html += `<h3>${ico(CAT_ICO[cat])} ${cat}</h3><div class="shop-grid">` + SHOP.filter((it) => it.cat === cat).map((it) => {
         const owned = save.owned.includes(it.id), eq = owned && isEquipped(it);
-        const sw = it.cat === 'Brillo' && itemValue(it.id) ? `<i class="dot" style="background:${itemValue(it.id)}"></i>` : '';
         const label = eq ? `${ico('check')} Equipado` : owned ? 'Equipar' : `${ico(it.dia ? 'diamond' : 'orb')} ${it.price}`;
-        return `<button class="shop-item${eq ? ' on' : ''}${owned ? '' : ' buy'}" data-item="${it.id}">${sw}<b>${it.name}</b><span>${label}</span></button>`;
+        return `<button class="shop-item${eq ? ' on' : ''}${owned ? '' : ' buy'}" data-item="${it.id}"><canvas class="pv" width="96" height="48" data-pv="${it.id}"></canvas><b>${it.name}</b><span>${label}</span></button>`;
       }).join('') + '</div>';
     }
   } else if (t === 'cofres') {

@@ -232,7 +232,8 @@ function showNewBest(p) {
 function showAttempt() {
   const el = $('attempt');
   el.hidden = !save.showAttempts;
-  el.textContent = game.practice ? 'Práctica' : 'Intento ' + game.attempts;
+  const txt = game.practice ? 'Práctica' : 'Intento ' + game.attempts;
+  if (window.UIFX) window.UIFX.popText(el, txt); else el.textContent = txt;
   el.style.transition = 'none';
   el.style.opacity = '1';
   clearTimeout(game.attemptTimer);
@@ -479,9 +480,10 @@ function showComplete() {
   labelQuit();
   const s = game.s, L = game.L;
   const got = L.coins.filter((id) => s.used[id]).length;
-  $('doneTitle').textContent = game.practice ? '¡Práctica completada!' : '¡Nivel completado!';
-  $('doneAttempts').textContent = game.attempts;
-  $('doneJumps').textContent = s.jumps;
+  const fx = window.UIFX;
+  const doneText = game.practice ? '¡Práctica completada!' : '¡Nivel completado!';
+  if (fx) fx.popText($('doneTitle'), doneText, true); else $('doneTitle').textContent = doneText;
+  for (const [id, v] of [['doneAttempts', game.attempts], ['doneJumps', s.jumps]]) { $(id).dataset.v = 0; if (fx) fx.countTo($(id), v); else $(id).textContent = v; }
   const secs = Math.round(s.tick / TPS);
   $('doneTime').textContent = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
   $('doneCoins').textContent = got + '/' + L.coins.length;
@@ -519,9 +521,14 @@ function visualY(c, s, y, dt) {
   return y + c.yOff + c.lift;
 }
 
-function beatPulse(tick, bpm) {
-  const ph = (tick / TPS * (bpm || 150) / 60) % 1;
+function beatPulse(tick, bpm, first) {
+  const ph = (((tick / TPS - (first || 0)) * (bpm || 150) / 60) % 1 + 1) % 1;
   return Math.exp(-ph * 5);
+}
+// Pulso al ritmo de la canción del nivel: con una canción real, el tiempo 1 cae donde lo midió tracks.js.
+function levelBeat(def, tick) {
+  const tr = def.song && def.song.startsWith('track:') && window.Tracks ? Tracks.TRACKS[def.song.slice(6)] : null;
+  return tr ? beatPulse(tick, tr.bpm, tr.first) : beatPulse(tick, def.bpm);
 }
 // Estado del gemelo del modo dual (s.twin), interpolado como el jugador.
 function twinView(s, a) {
@@ -558,7 +565,7 @@ function loop(now) {
     const camY = game.prevCamY + (game.camY - game.prevCamY) * a;
     view = {
       x, y, rot: lerpAngle(s.prot, s.rot, a), mode: s.mode, mini: s.mini, flip: s.flip, dead: s.dead, visible: true,
-      camX: x + 3.6 * B, camY: camY + VIEW_H / 2, beat: beatPulse(s.tick, game.L.def.bpm), colorsX: x,
+      camX: x + 3.6 * B, camY: camY + VIEW_H / 2, beat: levelBeat(game.L.def, s.tick), colorsX: x,
       used: s.used, savedCoins: save.coins[game.L.id], trail: game.waveTrail, lo: s.lo, hi: s.hi,
       grounded: s.grounded, trig: triggerState(game.L.def, x), twin: twinView(s, a), boost: s.boost || 0,
       intro: game.attempts === 1 && game.introAt ? (now - game.introAt) / 1000 : null,
@@ -588,7 +595,7 @@ function loop(now) {
       const x = s.px + (s.x - s.px) * a, y = visualY(demo, s, s.py + (s.y - s.py) * a, dt);
       view = {
         x, y, rot: lerpAngle(s.prot, s.rot, a), mode: s.mode, mini: s.mini, flip: s.flip, dead: s.dead, visible: true, menu: true,
-        camX: x + 3.6 * B, camY: demo.prevCamY + (demo.camY - demo.prevCamY) * a + VIEW_H / 2, beat: beatPulse(s.tick, L.def.bpm) * 0.7,
+        camX: x + 3.6 * B, camY: demo.prevCamY + (demo.camY - demo.prevCamY) * a + VIEW_H / 2, beat: levelBeat(L.def, s.tick) * 0.7,
         colorsX: x, used: s.used, trail: demo.trail, lo: s.lo, hi: s.hi,
         grounded: s.grounded, boost: s.boost || 0, trig: triggerState(L.def, x), twin: twinView(s, a), wonT: s.won && demo.endAt ? (now - demo.endAt) / 1000 : null,
       };
@@ -716,7 +723,7 @@ function levelDuration(def) {
 function fmtDur(s) { s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function renderLevelCard() {
   const def = defs[game.sel];
-  $('lvName').textContent = def.name;
+  if (window.UIFX) window.UIFX.scramble($('lvName'), def.name); else $('lvName').textContent = def.name;
   $('lvDiff').textContent = def.difficulty || '';
   $('lvTime').innerHTML = ico('clock') + ' ' + fmtDur(levelDuration(def));
   $('lvStars').innerHTML = ico('star').repeat(Math.min(10, def.stars || 0));
@@ -752,7 +759,7 @@ function applyDesigns() {
 function renderGarage() {
   const mode = game.garageMode;
   const coins = totalCoins();
-  $('garageCoins').textContent = coins;
+  if (window.UIFX) window.UIFX.countTo($('garageCoins'), coins); else $('garageCoins').textContent = coins;
   $('garageTabs').innerHTML = Object.keys(DESIGNS).map((m) => `<button class="${m === mode ? 'on' : ''}" data-mode="${m}">${MODE_LABEL[m]}</button>`).join('');
   const cur = save.designs[mode] || DESIGNS[mode][0][0];
   const look = game.garagePreview || cur;

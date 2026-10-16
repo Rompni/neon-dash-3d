@@ -17,3 +17,4 @@ import './modelos-url.js';
 
 import 'virtual:juego'; // world.js + game.js + meta.js
 import './editor.js';
+import './ui-fx.js';
