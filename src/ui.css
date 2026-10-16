@@ -428,3 +428,11 @@ kbd { font: inherit; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.2
 .ed-note { color: var(--muted); font-size: 12px; margin: -6px 0 10px; letter-spacing: 0.5px; }
 .ed-card.mod { border-left: 2px solid var(--gold); }
 .ed-tag { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink); background: var(--gold); padding: 1px 6px; vertical-align: 2px; }
+
+/* lista del editor: el panel entero se desplaza (con la sección mod no cabía y no se podía bajar) */
+.ed-list .panel { overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
+.ed-list .panel > .ed-cards { overflow: visible; }
+#edMod .ed-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; overflow: visible; }
+#edMod .ed-card { padding: 10px; }
+#edMod .ed-card h3 { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+#edMod .ed-card .ed-b { width: 100%; justify-content: center; }
