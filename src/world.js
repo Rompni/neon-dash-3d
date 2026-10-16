@@ -1226,12 +1226,26 @@ function ambientParticles(view) {
   switch (W.theme) {
     case 'volcan':
       for (let n = spawnN(0.5); n > 0; n--) particle(cx - 12 + r() * 34, fy + r() * 1.5, -6 - r() * 22, (r() - 0.5) * 0.6, 1.2 + r() * 2, 0, 2.5, 0.18 + r() * 0.15, r() < 0.5 ? '#ff6b3d' : '#ffb13b', { drag: 0.2 });
+      // ceniza que cae despacio
+      for (let n = spawnN(0.2); n > 0; n--) particle(cx - 12 + r() * 40, fy + 12 + r() * 4, -4 - r() * 24, 0.4 + r() * 0.4, -0.6 - r() * 0.4, 0, 8, 0.06, '#9a8a90', { drag: 0 });
       break;
     case 'glaciar':
       for (let n = spawnN(0.8); n > 0; n--) particle(cx - 14 + r() * 40, fy + 14, -3 - r() * 25, -0.6 - r() * 0.6, -1.2 - r() * 0.8, 0, 9, 0.07 + r() * 0.07, '#cfe8ff', { drag: 0 });
       break;
     case 'oceano':
       for (let n = spawnN(0.45); n > 0; n--) particle(cx - 12 + r() * 36, fy, -3 - r() * 25, (r() - 0.5) * 0.3, 1 + r() * 1.5, 0, 7, 0.08 + r() * 0.12, '#9fe8ff', { drag: 0 });
+      // columnas de burbujas que salen de grietas del arrecife
+      if (W.vents) for (const v of W.vents) if (v.x > cx - 16 && v.x < cx + 30) for (let n = spawnN(0.1); n > 0; n--) particle(v.x + (r() - 0.5) * 0.4, v.y, v.z, (r() - 0.5) * 0.4, 1.4 + r() * 1.2, 0, 6, 0.07 + r() * 0.08, '#bff4ff', { drag: 0 });
+      break;
+    case 'cristales':
+      // destellos que aparecen y se apagan entre los cristales
+      for (let n = spawnN(0.5); n > 0; n--) particle(cx - 14 + r() * 44, fy + 0.5 + r() * 12, -8 - r() * 36, 0, 0.1, 0, 0.5 + r() * 0.4, 0.1 + r() * 0.12, r() < 0.5 ? '#ffffff' : '#b8f0ff', { drag: 0 });
+      break;
+    case 'vacio':
+      for (let n = spawnN(0.25); n > 0; n--) particle(cx - 14 + r() * 40, fy + r() * 10, -6 - r() * 30, 0, 0.3 + r() * 0.3, 0, 4, 0.08, r() < 0.5 ? '#b48cff' : '#7a5cff', { drag: 0 });
+      break;
+    case 'ruinas':
+      for (let n = spawnN(0.3); n > 0; n--) particle(cx - 12 + r() * 38, fy + r() * 8, -4 - r() * 26, 0.2 + r() * 0.3, (r() - 0.4) * 0.3, 0, 5, 0.06 + r() * 0.05, '#ffd9a0', { drag: 0 });
       break;
     case 'bosque':
       for (let n = spawnN(0.25); n > 0; n--) particle(cx - 10 + r() * 32, fy + 0.5 + r() * 6, -4 - r() * 20, (r() - 0.5) * 0.8, (r() - 0.5) * 0.8, 0, 3, 0.09 + r() * 0.06, r() < 0.6 ? '#d9ff5a' : '#7affb0', { drag: 0 });
@@ -1247,56 +1261,821 @@ function ambientParticles(view) {
       break;
   }
 }
+// ---- material de paisaje con efectos (océano, montañas, cristales, vacío, volcán, desierto, circuito, ruinas)
+// Igual que farMaterial (cuerpo según la orientación de la cara, cimas con el color del nivel, niebla), y con
+// efectos que se encienden por #define: así cada fondo compila sólo lo que usa y todo sigue los colores del nivel.
+// uAlt es un segundo color (del nivel o fijo: nieve, lava); uFx/uFx2 son parámetros de cada efecto y uMove los
+// del movimiento en el shader (vaivén, giro, flotación), que no cuesta nada por fotograma en la CPU.
+const SC_HASH = `float sh1(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+  float sn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(sh1(i), sh1(i + vec2(1.0, 0.0)), f.x), mix(sh1(i + vec2(0.0, 1.0)), sh1(i + vec2(1.0, 1.0)), f.x), f.y); }
+  float fbm(vec2 p){ return sn(p) * 0.55 + sn(p * 2.03 + 7.1) * 0.3 + sn(p * 4.01 + 3.7) * 0.15; }
+  // red de líneas que ondulan (luz del agua)
+  float caus(vec2 p, float t){
+    float v = sin(p.x + t + sin(p.y * 0.8 + t * 0.6) * 1.7) + sin(p.y * 1.1 - t * 0.8 + sin(p.x * 0.9 - t * 0.5) * 1.5) + sin((p.x - p.y) * 0.7 + t * 0.4);
+    return pow(max(0.0, 1.0 - abs(v) * 0.9), 7.0);
+  }`;
+const SC_UNI = `uniform vec3 uBody; uniform vec3 uGlow; uniform vec3 uFog; uniform vec3 uAlt; uniform float uFogD; uniform float uBeat; uniform float uPeak;
+  uniform float uY0; uniform float uY1; uniform float uTime; uniform float uCalm; uniform vec4 uFx; uniform vec4 uFx2; uniform vec4 uMove;
+  varying vec3 vWorld; varying vec3 vLocal; varying float vSeed; varying vec3 vNrm; varying vec2 vUv; varying float vFlag;`;
+const SC_VS = `${SC_UNI}
+  ${SC_HASH}
+  void main(){
+    vec3 p = position;
+    vLocal = p; vUv = uv;
+    vFlag = step(1.5, uv.x); // marca de piezas fundidas en una geometría (las lianas llevan uv.x > 1.5)
+    #ifdef USE_INSTANCING
+      mat4 mm = modelMatrix * instanceMatrix;
+    #else
+      mat4 mm = modelMatrix;
+    #endif
+    vSeed = sh1(mm[3].xz * 0.37 + 1.7);
+    #ifdef FLAP
+      p.z += pow(abs(p.y), 1.5) * sin(uTime * 1.6 + uMove.w - abs(p.y) * 1.2) * uMove.x;
+    #endif
+    #ifdef SPIN
+      float a = uTime * uMove.y * (0.6 + vSeed * 0.8) + vSeed * 6.283;
+      p.xz = mat2(cos(a), sin(a), -sin(a), cos(a)) * p.xz;
+      float b = 0.4 + vSeed * 0.8;
+      p.yz = mat2(cos(b), sin(b), -sin(b), cos(b)) * p.yz;
+    #endif
+    #ifdef SPINZ
+      float az = uTime * uMove.y + vSeed * 6.283;
+      p.xy = mat2(cos(az), sin(az), -sin(az), cos(az)) * p.xy;
+    #endif
+    #ifdef VINES
+      float hv = max(-p.y, 0.0) * vFlag;
+      p.x += sin(uTime * 1.1 + vSeed * 6.283 + hv * 1.5) * hv * hv * uMove.x;
+    #endif
+    vec4 wp = mm * vec4(p, 1.0);
+    #ifdef SWAY
+      float hh = abs(position.y);
+      float ph = uTime * 0.8 + vSeed * 6.283 + hh * 2.4;
+      wp.x += sin(ph) * uMove.x * hh * hh;
+      wp.z += cos(ph * 0.8 + 1.3) * uMove.x * 0.35 * hh * hh;
+    #endif
+    #ifdef BOB
+      wp.y += sin(uTime * uMove.w + vSeed * 6.283) * uMove.z;
+    #endif
+    #ifdef DRIFT
+      wp.x += uTime * uMove.x * (0.6 + vSeed * 0.8);
+    #endif
+    vNrm = normalize(mat3(mm) * normal);
+    vWorld = wp.xyz;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }`;
+const SC_FS = `${SC_UNI}
+  ${SC_HASH}
+  // runa: trazos elegidos al azar dentro de una celda
+  float glyph(vec2 cell, vec2 f){
+    vec2 q = f - 0.5;
+    if (max(abs(q.x), abs(q.y)) > 0.36) return 0.0;
+    float h = sh1(cell + 0.5);
+    if (h < 0.25) return 0.0;
+    float w = 0.09, g = 0.0;
+    g = max(g, step(0.5, fract(h * 3.1)) * step(abs(q.x), w));
+    g = max(g, step(0.5, fract(h * 5.7)) * step(abs(q.y - 0.27), w) * step(abs(q.x), 0.3));
+    g = max(g, step(0.5, fract(h * 9.3)) * step(abs(q.y + 0.27), w) * step(abs(q.x), 0.3));
+    g = max(g, step(0.5, fract(h * 13.9)) * step(abs(q.x - q.y), w * 1.4));
+    g = max(g, step(0.5, fract(h * 17.3)) * step(abs(q.x + q.y), w * 1.4));
+    g = max(g, step(0.5, fract(h * 23.1)) * step(abs(length(q) - 0.2), w));
+    return g;
+  }
+  void main(){
+    vec3 toCam = cameraPosition - vWorld;
+    float d = length(toCam);
+    #ifdef SMOOTH
+      vec3 n = normalize(vNrm);
+    #else
+      vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+      if (dot(n, toCam) < 0.0) n = -n;
+    #endif
+    float lit = 0.3 + 0.7 * max(dot(n, normalize(vec3(-0.4, 0.8, 0.5))), 0.0);
+    float far = 1.0 - smoothstep(35.0, 110.0, d); // el detalle fino se apaga a lo lejos (si no, sale ruido)
+    vec3 c = uBody * lit;
+    #ifdef ABSY
+      float h = clamp((abs(vLocal.y) - uY0) / (uY1 - uY0), 0.0, 1.0);
+    #else
+      float h = clamp((vLocal.y - uY0) / (uY1 - uY0), 0.0, 1.0);
+    #endif
+    c += uGlow * pow(h, uPeak) * (1.0 + uBeat * 0.5);
+    #ifdef RIPPLES
+      float rp = sin(vWorld.x * 2.4 + vWorld.z * 0.9 + sn(vWorld.xz * 0.25) * 7.0);
+      c *= 1.0 + 0.12 * rp * (1.0 - smoothstep(25.0, 70.0, d));
+      // arena: luz cálida del cielo desde arriba y contraluz del sol (detrás) en las crestas
+      c += uAlt * (0.1 + 0.25 * max(n.y, 0.0)) + uAlt * pow(max(dot(n, normalize(vec3(-0.1, 0.45, -0.9))), 0.0), 2.0) * 0.8;
+    #endif
+    #ifdef CAP_H
+      // nieve: por encima de una altura (con borde irregular) y sólo en las caras poco empinadas
+      float edge = uFx.x + (sn(vWorld.xz * 0.35) - 0.5) * 0.16;
+      float cap = smoothstep(edge, edge + 0.04, h) * smoothstep(0.2, 0.5, n.y);
+      c = mix(c, uAlt * (0.35 + 0.65 * lit), cap);
+    #endif
+    #ifdef CAP_UP
+      float top = smoothstep(0.75, 0.92, n.y) * (1.0 - vFlag);
+      c = mix(c, uAlt * (0.45 + 0.55 * lit), top);
+    #endif
+    #ifdef VINES
+      c = mix(c, uAlt * 0.45 * lit + uGlow * 0.15, vFlag);
+    #endif
+    #ifdef CAUSTIC
+      c += uAlt * caus(vWorld.xz * 0.45, uTime * 0.8) * smoothstep(0.1, 0.7, n.y) * (1.0 - smoothstep(25.0, 80.0, d)) * uFx.y;
+    #endif
+    #ifdef CRYSTAL
+      float fres = pow(1.0 - abs(dot(n, normalize(toCam))), 2.5);
+      c += uAlt * fres * 0.9;                                                         // borde que brilla
+      c += uGlow * (0.15 + 0.35 * h) * (0.85 + 0.15 * sin(uTime * 1.3 + vSeed * 6.283)); // brillo interior
+      float band = fract(vWorld.y * 0.06 - uTime * 0.12 + vSeed);
+      c += uAlt * smoothstep(0.035, 0.0, abs(band - 0.5)) * 0.8;                      // destello que sube
+    #endif
+    #ifdef LEDS
+      // torres de servidores: rejilla de LEDs que se encienden y apagan suave (muy lento con reduceFlash)
+      float side = 1.0 - smoothstep(0.3, 0.6, abs(n.y));
+      vec2 g = vec2((vWorld.x + vWorld.z) * 2.0, vWorld.y * 2.4);
+      vec2 cell = floor(g), f = fract(g);
+      vec2 fw = max(fwidth(g), vec2(1e-4));
+      float nearL = 1.0 - smoothstep(0.3, 0.7, max(fw.x, fw.y));
+      float dotm = 1.0 - smoothstep(0.2, 0.24 + fw.x * 1.5, length(f - 0.5));
+      float id = sh1(cell + vSeed * 91.0);
+      float sp = mix(0.3 + id * 1.2, 0.05, uCalm);
+      float on = smoothstep(0.3, 0.7, 0.5 + 0.5 * sin(uTime * sp * 3.0 + id * 50.0)) * step(0.3, sh1(cell * 1.31 + 7.7));
+      float rack = step(0.15, fract(g.y / 7.0));
+      vec3 lc = mix(uGlow, uAlt, step(0.8, id));
+      c += lc * mix(0.08, dotm * on * rack * 1.6, nearL) * side;
+      float ex = smoothstep(0.46, 0.5, abs(vLocal.x)), ez = smoothstep(0.46, 0.5, abs(vLocal.z));
+      c += uGlow * (smoothstep(0.985, 1.0, vLocal.y) * max(ex, ez) + 0.5 * ex * ez) * 1.2;
+    #endif
+    #ifdef SEAMS
+      // monolitos: juntas que brillan (horizontales cada 1/uFx.x de altura y una vertical en cada cara)
+      vec3 fwl = fwidth(vLocal) + 1e-4;
+      float sy = abs(fract(vLocal.y * uFx.x + 0.5) - 0.5) / (fwl.y * uFx.x);
+      float sx = min(abs(vLocal.x) / fwl.x, abs(vLocal.z) / fwl.z);
+      float seam = max(1.0 - smoothstep(0.8, 1.8, sy), 1.0 - smoothstep(0.8, 1.8, sx));
+      c += uGlow * seam * (0.6 + 1.2 * (0.5 + 0.5 * sin(vLocal.y * 9.0 - uTime * 1.2 + vSeed * 6.283)));
+    #endif
+    #ifdef LAVA
+      // volcán: canales de lava que bajan del cráter (más o menos largos) y el lago del cráter
+      float ang = atan(vLocal.z, vLocal.x);
+      float u = (ang / 6.283 + 0.5) * uFx.x + (sn(vec2(h * 5.0, vSeed * 10.0)) - 0.5) * 0.9;
+      float cid = floor(u), fu = fract(u);
+      float wch = 0.05 + 0.07 * h;
+      float chan = 1.0 - smoothstep(wch * 0.5, wch, abs(fu - 0.5));
+      float len = 0.3 + 0.6 * sh1(vec2(cid, vSeed * 13.0));
+      chan *= smoothstep(1.0 - len, 1.0 - len + 0.1, h);
+      float flow = 0.6 + 0.4 * sin(h * 40.0 + uTime * 2.2 + cid * 1.7);
+      c += uAlt * chan * flow * 1.3;
+      float lake = smoothstep(0.175, 0.12, length(vLocal.xz)) * step(0.85, vLocal.y);
+      c = mix(c, uAlt * (1.3 + 0.5 * sn(vLocal.xz * 40.0 + uTime * 0.4)), lake);
+      c += uAlt * pow(h, 14.0) * 0.6;
+    #endif
+    #ifdef CRACKS
+      float cn = sn(vWorld.xz * 0.22) * 0.65 + sn(vWorld.xz * 0.6 + 4.0) * 0.35;
+      float crack = (1.0 - smoothstep(0.0, fwidth(cn) * 1.2 + 0.006, abs(cn - 0.5))) * smoothstep(0.5, 0.68, sn(vWorld.xz * 0.06 + 9.0));
+      c += uAlt * crack * (0.55 + 0.45 * sin(uTime * 1.2 + vWorld.x * 0.2)) * far * smoothstep(-0.2, 0.5, n.y);
+    #endif
+    #ifdef RUNES
+      // runas en una franja de altura (uFx.x..uFx.y), y en |x local| = uFx.z ± uFx.w (la puerta)
+      vec2 rq = vec2(vWorld.x + vWorld.z, vWorld.y) * uFx2.x;
+      vec2 rc = floor(rq);
+      float rband = step(uFx.x, vWorld.y) * step(vWorld.y, uFx.y) * step(abs(abs(vLocal.x) - uFx.z), uFx.w);
+      float wave = 0.55 + 0.45 * sin(uTime * 0.9 - rc.x * 0.35 + rc.y * 0.5);
+      c += uAlt * glyph(rc, fract(rq)) * rband * wave * 1.4 * (1.0 - smoothstep(45.0, 140.0, d));
+    #endif
+    #ifdef PULSE
+      // pistas de circuito: neón tenue con pulsos de luz que viajan (coordenada del camino: x - z)
+      float pp = fract((vWorld.x - vWorld.z) * uFx.x - uTime * uFx.y);
+      c = uGlow * 0.35 + uAlt * pow(pp, 12.0) * 3.0;
+    #endif
+    #ifdef NEON
+      c = uGlow * (1.0 + uBeat * 0.3);
+    #endif
+    float fog = 1.0 - exp(-uFogD * uFogD * d * d);
+    gl_FragColor = vec4(mix(c, uFog, fog), 1.0);
+  }`;
+// Capas transparentes (bruma, nubes, humo, rayos de luz, lluvia de datos...). Salida con alfa premultiplicado:
+// 'base' tapa lo de detrás según 'a' y 'add' suma luz, así una misma capa puede tapar y brillar.
+const SC_SOFT_FS = `${SC_UNI}
+  ${SC_HASH}
+  void main(){
+    vec3 base = vec3(0.0), add = vec3(0.0); float a = 0.0;
+    vec2 uv = vUv; float t = uTime;
+    #ifdef HAZE
+      float band = smoothstep(0.0, uFx.x, uv.y) * (1.0 - smoothstep(uFx.x, 1.0, uv.y));
+      float hn = fbm(vec2(vWorld.x * 0.015 + t * 0.015 + vSeed * 9.0, uv.y * 2.5 + vSeed * 4.0));
+      a = band * (0.35 + 0.65 * hn) * uFx.y;
+      base = uFog * uFx.z + uGlow * (0.15 + uFx.w);
+    #endif
+    #ifdef CLOUD
+      vec2 q = (uv - 0.5) * 2.0;
+      float cn = fbm(uv * vec2(3.0, 2.0) + vSeed * 11.0 + vec2(t * 0.01, 0.0));
+      float r = length(q * vec2(1.0, 1.7)) + (cn - 0.5) * 0.7;
+      a = smoothstep(0.85, 0.35, r) * smoothstep(0.05, 0.4, uv.y) * uFx.y;
+      base = uBody * 2.0 + uFog * 1.3 + uGlow * (0.15 + 0.4 * smoothstep(0.3, 1.0, uv.y));
+    #endif
+    #ifdef SMOKE
+      float yy = uv.y;
+      float xo = uv.x - 0.5 - sin(yy * 2.5 + t * 0.15 + vSeed * 6.0) * 0.07 * yy - yy * yy * 0.12;
+      float w = mix(0.05, 0.42, pow(yy, 0.75));
+      float sm = fbm(vec2(xo * 5.0, yy * 3.5 - t * 0.12) + vSeed * 7.0);
+      a = clamp(smoothstep(w, w * 0.2, abs(xo)) * (0.45 + 0.75 * sm) * smoothstep(0.0, 0.06, yy) * (1.0 - smoothstep(0.55, 1.0, yy)), 0.0, 1.0) * uFx.y;
+      base = mix(uAlt * 0.45, uBody * 0.7, smoothstep(0.0, 0.3, yy));
+      add = uAlt * (1.0 - smoothstep(0.0, 0.25, yy)) * a * 0.7;
+    #endif
+    #ifdef SHAFT
+      float edgeS = smoothstep(0.0, 0.3, uv.x) * smoothstep(1.0, 0.7, uv.x);
+      float shim = 0.65 + 0.35 * sin(t * mix(0.6, 0.2, uCalm) + vSeed * 6.283);
+      add = uGlow * pow(uv.y, 1.5) * smoothstep(1.0, 0.85, uv.y) * edgeS * shim * uFx.y;
+    #endif
+    #ifdef HEAT
+      // calima: vetas horizontales que tiemblan sobre el horizonte
+      float s = sin(uv.y * 90.0 + sn(vec2(vWorld.x * 0.08, t * 0.7)) * 8.0 + t * 1.5);
+      float hb = smoothstep(0.0, 0.3, uv.y) * (1.0 - smoothstep(0.4, 1.0, uv.y));
+      a = hb * 0.1 * uFx.y; base = uFog * 1.4 + uGlow * 0.2;
+      add = (uGlow * 0.6 + uAlt * 0.4) * pow(0.5 + 0.5 * s, 8.0) * hb * uFx.y * 0.35;
+    #endif
+    #ifdef RAIN
+      // lluvia de datos: columnas de bloques que caen con una cabeza más clara
+      float cx = floor(uv.x * uFx.x);
+      float on = step(0.45, sh1(vec2(cx, 7.0)));
+      float sp = 0.04 + sh1(vec2(cx, 3.0)) * 0.08;
+      float head = 1.0 - fract(t * sp * mix(1.0, 0.4, uCalm) + sh1(vec2(cx, 9.0)));
+      float dist = fract(uv.y - head);
+      vec2 gg = vec2(uv.x * uFx.x, uv.y * uFx.y), ff = fract(gg);
+      float gl = step(0.35, sh1(vec2(cx, floor(gg.y) + floor(t * mix(3.0, 0.5, uCalm) * (0.5 + sp * 10.0)))));
+      float box = step(0.2, ff.x) * step(ff.x, 0.8) * step(0.15, ff.y) * step(ff.y, 0.85);
+      float edgeR = smoothstep(0.0, 0.15, uv.y) * smoothstep(1.0, 0.8, uv.y) * smoothstep(0.0, 0.05, uv.x) * smoothstep(1.0, 0.95, uv.x);
+      add = (uGlow * exp(-dist * 7.0) + uAlt * smoothstep(0.03, 0.0, dist) * 2.0) * on * gl * box * edgeR * uFx.z;
+    #endif
+    #ifdef GRID
+      vec2 gp = vWorld.xy / (uFx.x * (1.0 - vWorld.z * 0.02));
+      vec2 gd = abs(fract(gp - 0.5) - 0.5) / max(fwidth(gp), vec2(1e-4));
+      float line = 1.0 - min(min(gd.x, gd.y) / 1.2, 1.0);
+      float fadeY = 1.0 - smoothstep(0.0, 1.0, uv.y);
+      float edgeX = smoothstep(0.0, 0.08, uv.x) * smoothstep(1.0, 0.92, uv.x);
+      float scan = smoothstep(0.97, 1.0, fract(vWorld.y * 0.02 - t * 0.05 + vSeed));
+      add = uGlow * (line * (0.25 + 0.75 * fadeY) + scan * 0.4 * fadeY) * edgeX * uFx.y;
+    #endif
+    #ifdef HOLO
+      vec3 hn3 = normalize(vNrm), hv = normalize(cameraPosition - vWorld);
+      float fres = pow(1.0 - abs(dot(hn3, hv)), 2.0);
+      float scanH = 0.55 + 0.45 * sin(vWorld.y * 2.2 - t * 2.0);
+      float lat = smoothstep(0.92, 1.0, abs(sin(vLocal.y * 14.0)));
+      add = (uGlow * (0.12 + fres * 1.1 + lat * 0.4) * scanH + uAlt * pow(fres, 5.0) * 0.8) * uFx.y;
+    #endif
+    #ifdef RADIAL
+      float rr = length(uv - 0.5) * 2.0;
+      add = mix(uAlt, uGlow, rr) * pow(max(0.0, 1.0 - rr), 2.4) * uFx.y * (0.85 + 0.15 * sin(t * 0.8 + vSeed * 6.0) + uBeat * 0.15);
+    #endif
+    #ifdef DISK
+      // disco de acreción: gira más rápido por dentro y un lado brilla más
+      float dr = length(vLocal.xy), dang = atan(vLocal.y, vLocal.x);
+      float k = clamp((dr - 1.2) / 2.2, 0.0, 1.0);
+      float a2 = dang + t * 0.5 / (dr * dr) * mix(1.0, 0.3, uCalm);
+      float dn = fbm(vec2(cos(a2), sin(a2)) * dr * 1.8 + 3.0);
+      float rings = 0.6 + 0.4 * sin(dr * 14.0 + dn * 4.0);
+      float prof = smoothstep(0.0, 0.08, k) * pow(1.0 - k, 1.5);
+      add = mix(uAlt * 1.6, uGlow, k) * prof * rings * (0.4 + 0.9 * dn) * (0.55 + 0.45 * cos(dang)) * uFx.y;
+    #endif
+    #ifdef HALO
+      // anillo de fotones y halo alrededor del agujero negro (uFx.x = radio del horizonte)
+      float hr = length(uv - 0.5) * 2.0, rh = uFx.x;
+      float ring = exp(-pow((hr - rh * 1.08) / (rh * 0.06), 2.0));
+      add = (uAlt * ring * 2.0 + uGlow * pow(max(0.0, 1.0 - hr), 2.0) * 0.5) * smoothstep(rh * 0.98, rh * 1.02, hr) * uFx.y;
+    #endif
+    #ifdef MOON
+      vec2 mq = (uv - 0.5) * 2.0; float mr = length(mq);
+      float disc = smoothstep(uFx.x + 0.01, uFx.x - 0.01, mr);
+      vec3 sph = vec3(mq / uFx.x, sqrt(max(0.0, 1.0 - dot(mq, mq) / (uFx.x * uFx.x))));
+      float ml = 0.2 + 0.8 * max(dot(sph, normalize(vec3(-0.5, 0.4, 0.75))), 0.0);
+      float crat = smoothstep(0.55, 0.72, fbm(mq * 5.0 + 2.0)) * 0.3;
+      a = disc; base = vec3(0.92, 0.94, 1.0) * ml * (0.9 - crat) * 1.4 + uGlow * 0.1;
+      add = uGlow * pow(max(0.0, 1.0 - mr), 3.0) * 0.7 * (1.0 - disc);
+    #endif
+    #ifdef SURFACE
+      // superficie del mar vista desde abajo
+      float fs = smoothstep(0.0, 0.25, uv.y) * smoothstep(1.0, 0.75, uv.y) * smoothstep(0.0, 0.1, uv.x) * smoothstep(1.0, 0.9, uv.x);
+      add = (uGlow * 0.25 + uAlt * caus(vWorld.xz * 0.08, t * 0.5) * 0.9) * fs * uFx.y;
+    #endif
+    #ifdef LAVA
+      // río de lava: costra que avanza y orillas que brillan
+      float m = uv.y - 0.5 - (sn(vec2(vWorld.x * 0.03, 1.0)) - 0.5) * 0.5;
+      float wid = 0.22 + 0.12 * sn(vec2(vWorld.x * 0.05, 5.0));
+      float mask = smoothstep(wid + 0.06, wid, abs(m));
+      float cr = fbm(vec2(vWorld.x * 0.12 - t * 0.35, vWorld.z * 0.3) * 1.5);
+      base = mix(uBody * 0.6 + uAlt * 0.12, uAlt * 1.8, smoothstep(0.42, 0.7, cr));
+      a = mask;
+      add = uAlt * 0.5 * smoothstep(wid + 0.25, wid, abs(m)) * (1.0 - mask);
+    #endif
+    #ifdef PORTAL
+      vec2 pq = (uv - 0.5) * 2.0; float pr = length(pq * vec2(1.0, 0.75)), pa = atan(pq.y, pq.x);
+      float sw = fbm(vec2(cos(pa + t * 0.2 + pr * 3.0), sin(pa + t * 0.2 + pr * 3.0)) * 2.0 + pr * 2.0 - t * 0.1);
+      float prings = smoothstep(0.85, 1.0, sin(pr * 18.0 - t * 1.2) * 0.5 + 0.5);
+      add = (uGlow * (0.25 + sw * 0.6) + uAlt * prings * 0.6) * smoothstep(1.0, 0.85, max(abs(pq.x), abs(pq.y))) * uFx.y;
+    #endif
+    a = clamp(a, 0.0, 1.0);
+    float d = length(vWorld - cameraPosition);
+    float fog = 1.0 - exp(-uFogD * uFogD * d * d);
+    gl_FragColor = vec4(mix(base, uFog, fog) * a + add * (1.0 - fog), a);
+  }`;
+const pick = (v, d) => (v != null ? v : d);
+// o: fx (lista de #define), soft (capa transparente), side2 (dos caras), body/glow/glowK/fog como farMaterial
+// (fog multiplica la densidad de la niebla: < 1 para que lo lejano se lea), alt/altK/altTint (segundo color:
+// 'obj', 'line', 'bg', 'red' o un hex fijo, aclarado hacia el color de las líneas con altTint), fxv/fx2/move.
+function sceneMat(o) {
+  const defines = {};
+  for (const f of o.fx || []) defines[f] = '';
+  const alt = typeof o.alt === 'string' && o.alt[0] === '#' ? new THREE.Color(o.alt) : o.alt || null;
+  const m = new THREE.ShaderMaterial({
+    defines,
+    uniforms: {
+      uBody: { value: new THREE.Color() }, uGlow: { value: new THREE.Color() }, uFog: { value: new THREE.Color() }, uAlt: { value: new THREE.Color() },
+      uFogD: { value: 0.017 }, uBeat: { value: 0 }, uPeak: { value: pick(o.peak, 4) }, uY0: { value: pick(o.y0, 0) }, uY1: { value: pick(o.y1, 1) },
+      uTime: { value: 0 }, uCalm: { value: 0 },
+      uFx: { value: new THREE.Vector4().fromArray(o.fxv || [0, 0, 0, 0]) }, uFx2: { value: new THREE.Vector4().fromArray(o.fx2 || [0, 0, 0, 0]) },
+      uMove: { value: new THREE.Vector4().fromArray(o.move || [0, 0, 0, 0]) },
+    },
+    vertexShader: SC_VS, fragmentShader: o.soft ? SC_SOFT_FS : SC_FS,
+    side: o.soft || o.side2 ? THREE.DoubleSide : THREE.FrontSide,
+  });
+  if (o.soft) Object.assign(m, { transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor });
+  W.scenery.push({ mat: m, body: pick(o.body, 0.07), glow: o.glow || 'line', glowK: pick(o.glowK, 0.8), fog: pick(o.fog, 1), alt, altK: pick(o.altK, 1), altTint: o.altTint || 0 });
+  W.timeMats.push(m);
+  return m;
+}
+// Color del nivel por nombre (o uno fijo) para el paisaje.
+function sceneryColor(k, cols) {
+  return k && k.isColor ? k : k === 'obj' ? cols.obj : k === 'red' ? RED_GLOW : k === 'bg' ? cols.bg : cols.line;
+}
+// Ruido 1D suave (para perfiles de crestas y dunas, en la CPU al construir).
+function noise1(seed) {
+  const r = seeded(seed), T = new Float32Array(512);
+  for (let i = 0; i < 512; i++) T[i] = r();
+  return (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return T[i & 511] * (1 - u) + T[(i + 1) & 511] * u; };
+}
+function hash3(x, y, z) {
+  const s = Math.sin(Math.round(x * 1000) * 12.9898 + Math.round(y * 1000) * 78.233 + Math.round(z * 1000) * 37.719) * 43758.5453;
+  return s - Math.floor(s);
+}
+// Franja de relieve continua a lo largo del nivel (crestas, dunas, arrecife): rejilla de nx × nz cuadros
+// entre z + depth/2 (delante, v = 0) y z - depth/2 (detrás, v = 1), con altura h(x, v). Devuelve también
+// heightAt(x, z) para posar cosas encima.
+function ridge(L, grp, mat, o) {
+  // desde bien a la izquierda: al empezar, la cámara ve las capas lejanas hasta x ≈ -100
+  const x0 = -200, x1 = L.endX / BU + 200, nx = Math.ceil((x1 - x0) / o.step), nz = o.nz || 6;
+  const pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = [];
+  for (let j = 0; j <= nz; j++) {
+    const v = j / nz, z = o.z + o.depth * (0.5 - v);
+    for (let i = 0; i <= nx; i++) { const x = x0 + i * o.step, k = (j * (nx + 1) + i) * 3; pos[k] = x; pos[k + 1] = o.h(x, v); pos[k + 2] = z; }
+  }
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
+      if ((i + j) & 1) idx.push(a, b, c, b, d, c); else idx.push(a, b, d, a, d, c);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData.ownGeo = true;
+  grp.add(mesh);
+  return { mesh, heightAt: (x, z) => o.h(x, Math.min(1, Math.max(0, 0.5 - (z - o.z) / o.depth))) };
+}
+// Perfil de cordillera: crestas afiladas (ruido "ridged") que serpentean en profundidad.
+function peakFn(seed, H, base, freq) {
+  const n = noise1(seed), m = noise1(seed + 7), q = noise1(seed + 13);
+  return (x, v) => {
+    const r1 = 1 - Math.abs(2 * n(x * freq) - 1), r2 = 1 - Math.abs(2 * n(x * freq * 2.3 + 17) - 1);
+    const crest = 0.45 + (m(x * freq * 0.7) - 0.5) * 0.4;
+    const prof = Math.max(0, 1 - Math.abs(v - crest) / (v < crest ? crest : 1 - crest));
+    const hg = base + H * (0.25 + 0.75 * (r1 * r1 * 0.75 + r2 * 0.25));
+    return hg * Math.pow(prof, 0.85) + (q(x * 0.8 + v * 13) - 0.5) * H * 0.07 * prof - 0.6;
+  };
+}
+function sstep(t) { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); }
+// Duna: ladera larga a barlovento y cara de caída corta y empinada; la cresta serpentea en profundidad.
+function duneFn(seed, P, A) {
+  const n = noise1(seed), m = noise1(seed + 3);
+  const prof = (u) => (u < 0.78 ? sstep(u / 0.78) : 1 - sstep((u - 0.78) / 0.22));
+  const fr = (x) => x - Math.floor(x);
+  return (x, v) => {
+    const shift = (m(v * 2.2 + x * 0.004) - 0.5) * 1.2;
+    const amp = A * (0.55 + 0.9 * n(x / (P * 2.5)));
+    const env = Math.sin(Math.PI * v);
+    return amp * (prof(fr(x / P + shift)) * 0.75 + prof(fr(x / (P * 0.57) + shift * 1.7 + 0.3)) * 0.3) * (0.35 + 0.65 * env) - 0.6 * (1 - env);
+  };
+}
+// Capas planas instanciadas (bruma, rejillas...) a lo largo de todo el nivel, de la más lejana a la más cercana
+// (así se mezclan bien entre sí).
+function layers(L, grp, mat, list) {
+  const len = L.endX / BU;
+  const items = list.slice().sort((p, q) => p[1] - q[1]).map(([y, z, h]) => [len / 2 + 40, y + h / 2, z, len + 420, h, 1]);
+  return scatter(new THREE.PlaneGeometry(1, 1), mat, items, grp);
+}
+// Rayos de luz instanciados (una sola llamada de dibujo para todo el nivel).
+function shafts(L, grp, o) {
+  const rnd = seeded(o.seed || 41), items = [];
+  for (let x = -20; x < L.endX / BU + 80; x += o.gap * (0.6 + rnd() * 0.8)) items.push([x, o.y, o.z - rnd() * o.zr, o.w * (0.6 + rnd() * 0.8), o.h, 1, 0, 0, o.tilt + (rnd() - 0.5) * 0.12]);
+  return scatter(new THREE.PlaneGeometry(1, 1), sceneMat({ soft: true, fx: ['SHAFT'], glow: o.glow, glowK: o.k, fog: o.fog, fxv: [0, 1, 0, 0] }), items, grp);
+}
+// Plano que acompaña a la cámara a lo lejos (luna, agujero negro, lluvia de datos...).
+function skyPlane(grp, mat, f, sx, sy) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+  m.scale.set(sx, sy || sx, 1);
+  m.userData.ownGeo = true;
+  grp.add(m);
+  W.skyFollow.push(Object.assign({ obj: m, dx: 0, y: 0, z: -260, k: 1 }, f));
+  return m;
+}
+function edgeSegs(geo) {
+  const p = new THREE.EdgesGeometry(geo).attributes.position, segs = [];
+  for (let i = 0; i < p.count; i += 2) segs.push([V(p.getX(i), p.getY(i), p.getZ(i)), V(p.getX(i + 1), p.getY(i + 1), p.getZ(i + 1))]);
+  return segs;
+}
+// Une piezas (geometría, matriz) en una sola geometría.
+function fuse(parts) {
+  return mergeGeometries(parts.map(([g, m]) => (m ? g.applyMatrix4(m) : g)));
+}
+const M4 = (x, y, z, rx, ry, rz, s) => new THREE.Matrix4().compose(V(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz || 0)), s && s.isVector3 ? s : V(s || 1, s || 1, s || 1));
+
+// ---- océano: arrecife en capas con luz del agua, kelp que se mece, corales, bruma, mantas a lo lejos
+function buildOcean(L, grp) {
+  const len = L.endX / BU, rnd = seeded(71);
+  const reefFn = (seed, H, fq) => { const n = noise1(seed), m = noise1(seed + 5); return (x, v) => H * (0.25 + 0.75 * n(x * fq + v * 3.1) * (0.5 + m(x * fq * 2.7 - v * 4.3))) * Math.pow(Math.sin(Math.PI * v), 0.6) - 0.5; };
+  const reefMat = (k, fog) => sceneMat({ fx: ['CAUSTIC'], body: 0.13, glow: 'obj', glowK: 0.25 * k, peak: 3, y0: 0, y1: 6 * k, alt: 'line', altTint: 0.4, altK: 0.7, fxv: [0, 1, 0, 0], fog });
+  const near = ridge(L, grp, reefMat(1, 1), { z: -20, depth: 14, step: 1.1, nz: 6, h: reefFn(73, 3.5, 0.12) });
+  const mid = ridge(L, grp, reefMat(1.6, 0.8), { z: -46, depth: 26, step: 2, nz: 6, h: reefFn(79, 9, 0.06) });
+  ridge(L, grp, sceneMat({ body: 0.1, glow: 'line', glowK: 0.45, peak: 4, y0: 0, y1: 30, fog: 0.55 }), { z: -100, depth: 50, step: 4, nz: 6, h: peakFn(83, 22, 2, 0.02) });
+  // corales ramificados (abiertos: sin tapas) y abanicos que se mecen, encima del arrecife
+  const coral = [];
+  const branch = (x, y, z, dir, len, r, depth) => {
+    dir.normalize();
+    coral.push([new THREE.CylinderGeometry(r * 0.7, r, len, 4, 1, true).translate(0, len / 2, 0), new THREE.Matrix4().compose(V(x, y, z), new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), dir), V(1, 1, 1))]);
+    if (depth > 0) for (let k = 0; k < 2; k++) { const a = rnd() * 6.28; branch(x + dir.x * len, y + dir.y * len, z + dir.z * len, V(dir.x + Math.cos(a) * 0.7, dir.y + 0.3, dir.z + Math.sin(a) * 0.7), len * 0.72, r * 0.7, depth - 1); }
+  };
+  for (let k = 0; k < 3; k++) { const a = k * 2.1 + rnd(); branch(0, 0, 0, V(Math.cos(a) * 0.4, 1, Math.sin(a) * 0.4), 0.45, 0.07, 2); }
+  const coralGeo = fuse(coral);
+  const corals = [], fans = [], kelp = [];
+  W.vents = [];
+  for (const [rg, z0, zr, sk] of [[near, -15, 9, 1], [mid, -36, 18, 1.8]]) {
+    for (let x = -60; x < len + 100; x += (3.2 + rnd() * 4.5) * sk) {
+      const z = z0 - rnd() * zr, y = rg.heightAt(x, z) - 0.15, s = (1.8 + rnd() * 2.2) * sk;
+      if (rnd() < 0.6) corals.push([x, y, z, s, s * (0.8 + rnd() * 0.5), s, 0, rnd() * 6, 0]);
+      else fans.push([x, y, z, s * 0.9, s * (0.8 + rnd() * 0.4), 1, 0, (rnd() - 0.5) * 1.2, 0]);
+      if (rnd() < 0.12 && sk === 1) W.vents.push({ x, y: y + 0.3, z });
+    }
+    // bosquecillos de kelp
+    for (let x = -60; x < len + 100; x += (7 + rnd() * 10) * sk) {
+      for (let k = 0, nk = 3 + Math.floor(rnd() * 4); k < nk; k++) {
+        const kx = x + (rnd() - 0.5) * 4 * sk, z = z0 - rnd() * zr;
+        kelp.push([kx, rg.heightAt(kx, z) - 0.3, z, (0.7 + rnd() * 0.5) * sk, (5 + rnd() * 9) * sk, 1, 0, rnd() * 6, 0]);
+      }
+    }
+  }
+  scatter(coralGeo, sceneMat({ body: 0.12, glow: 'obj', glowK: 0.9, peak: 2, y0: 0, y1: 1.1, fog: 0.9 }), corals, grp);
+  const fanGeo = new THREE.CircleGeometry(1, 14, 0, Math.PI);
+  const fp = fanGeo.attributes.position;
+  for (let i = 0; i < fp.count; i++) { const k = 1 + (hash3(fp.getX(i), fp.getY(i), 0) - 0.5) * 0.25; fp.setXY(i, fp.getX(i) * k, fp.getY(i) * k); }
+  scatter(fanGeo, sceneMat({ fx: ['SWAY'], side2: true, body: 0.1, glow: 'line', glowK: 0.8, peak: 1.6, y0: 0, y1: 1, move: [0.25, 0, 0, 0], fog: 0.9 }), fans, grp);
+  // cintas de kelp: planos de 10 tramos, estrechos arriba, ondulados y retorcidos, que se mecen en el shader
+  const kg = new THREE.PlaneGeometry(1, 1, 1, 10).translate(0, 0.5, 0), kp = kg.attributes.position;
+  for (let i = 0; i < kp.count; i++) { const y = kp.getY(i), x = kp.getX(i) * (1 - y * 0.55) * (1 + 0.35 * Math.sin(y * 9)), a = y * 2.4; kp.setXYZ(i, x * Math.cos(a), y, x * Math.sin(a)); }
+  scatter(kg, sceneMat({ fx: ['SWAY'], side2: true, body: 0.1, glow: 'obj', glowK: 0.55, peak: 1.4, y0: 0, y1: 1, move: [1.4, 0, 0, 0], fog: 0.9 }), kelp, grp);
+  // bruma entre capas, rayos de sol y la superficie vista desde abajo
+  layers(L, grp, sceneMat({ soft: true, fx: ['HAZE'], glow: 'line', glowK: 0.3, fog: 0.25, fxv: [0.3, 0.55, 1.7, 0] }), [[-2, -32, 16], [-2, -70, 26], [-2, -118, 40]]);
+  shafts(L, grp, { gap: 16, y: 18, z: -26, zr: 50, w: 6, h: 48, tilt: 0.25, glow: 'line', k: 0.45, fog: 0.4 });
+  const surf = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(Math.PI / 2), sceneMat({ soft: true, fx: ['SURFACE'], glow: 'line', glowK: 0.5, alt: 'line', altTint: 0.5, altK: 0.9, fog: 0, fxv: [0, 1, 0, 0] }));
+  surf.scale.set(700, 1, 260); surf.userData.ownGeo = true;
+  grp.add(surf);
+  W.skyFollow.push({ obj: surf, dx: 0, y: 36, z: -110, k: 1 });
+  // mantas: siluetas que cruzan despacio a lo lejos aleteando (aleteo en el shader)
+  const s = new THREE.Shape();
+  s.moveTo(1, 0); s.quadraticCurveTo(0.6, 0.35, -0.05, 1.5); s.quadraticCurveTo(-0.2, 0.5, -0.75, 0.12); s.lineTo(-2.4, 0.02);
+  s.lineTo(-2.4, -0.02); s.lineTo(-0.75, -0.12); s.quadraticCurveTo(-0.2, -0.5, -0.05, -1.5); s.quadraticCurveTo(0.6, -0.35, 1, 0);
+  const mg = new THREE.ShapeGeometry(s, 8);
+  const mm = sceneMat({ fx: ['FLAP', 'ABSY'], side2: true, body: 0.03, glow: 'line', glowK: 0.7, peak: 3, y0: 0, y1: 1.5, move: [0.35, 0, 0, 0], fog: 0.5 });
+  for (const [y, z, sc, v, ph] of [[24, -75, 6, 3.2, 0], [16, -58, 4, 4.5, 170]]) {
+    const m = new THREE.Mesh(mg, mm);
+    m.scale.setScalar(sc); m.rotation.set(-Math.PI / 2 + 0.45, 0, 0); m.position.set(0, y, z);
+    m.userData.ownGeo = true;
+    grp.add(m);
+    W.anim.push({ kind: 'swim', obj: m, y0: y, v, ph, span: 420 });
+  }
+}
+
+// ---- montañas: crestas en capas con nieve, bruma entre ellas, nubes, luna, pinos y aerogeneradores
+function buildPeaks(L, grp) {
+  const len = L.endX / BU, rnd = seeded(9);
+  const snow = (k, fog, glowK, snowAt) => sceneMat({ fx: ['CAP_H'], body: 0.13, glow: 'line', glowK, peak: 6, y0: 0, y1: k, alt: '#e6eeff', altTint: 0.3, altK: 0.75, fxv: [snowAt, 0, 0, 0], fog });
+  const foot = peakFn(11, 4, 1, 0.05);
+  const near = ridge(L, grp, sceneMat({ body: 0.11, glow: 'obj', glowK: 0.3, peak: 3, y0: 0, y1: 6, fog: 1 }), { z: -28, depth: 16, step: 1.5, nz: 6, h: foot });
+  const mid = ridge(L, grp, snow(20, 0.75, 0.45, 0.68), { z: -56, depth: 28, step: 2.5, nz: 7, h: peakFn(17, 15, 3, 0.03) });
+  ridge(L, grp, snow(38, 0.55, 0.6, 0.56), { z: -98, depth: 42, step: 3.5, nz: 7, h: peakFn(23, 30, 5, 0.018) });
+  ridge(L, grp, snow(62, 0.38, 0.9, 0.5), { z: -158, depth: 60, step: 5, nz: 7, h: peakFn(29, 50, 8, 0.011) });
+  // pinos en las faldas cercanas (tronco y tres pisos de copa en una sola geometría)
+  const pine = [[new THREE.CylinderGeometry(0.06, 0.08, 0.3, 5).translate(0, 0.15, 0)]];
+  for (let k = 0; k < 3; k++) { const h = 0.42 - k * 0.05; pine.push([new THREE.ConeGeometry(0.36 - k * 0.08, h, 7).translate(0, 0.2 + k * 0.22 + h / 2, 0)]); }
+  const pines = [];
+  for (let x = -60; x < len + 120; x += 0.8 + rnd() * 2.2) {
+    if (Math.sin(x * 0.07) + rnd() * 0.8 < 0.1) continue; // en bosquecillos
+    const z = -22 - rnd() * 9, s = 2.2 + rnd() * 2.6;
+    pines.push([x, near.heightAt(x, z) - 0.2, z, s * 0.9, s, s * 0.9, 0, rnd() * 6, 0]);
+  }
+  scatter(fuse(pine), sceneMat({ body: 0.06, glow: 'obj', glowK: 0.3, peak: 3, y0: 0, y1: 1, fog: 1 }), pines, grp);
+  // aerogeneradores en la cresta media: torre y rotor de tres palas que gira en el shader
+  const towers = [], rotors = [];
+  for (let x = 20; x < len + 120; x += 70 + rnd() * 60) {
+    for (let k = 0, nk = 2 + Math.floor(rnd() * 3); k < nk; k++) {
+      const tx = x + k * (6 + rnd() * 3), tz = -50 - rnd() * 6, ty = mid.heightAt(tx, tz) - 0.3, s = 6 + rnd() * 2;
+      towers.push([tx, ty, tz, s, s, s]);
+      rotors.push([tx, ty + s, tz + 0.12 * s, s * 0.8, s * 0.8, s * 0.8, 0, (rnd() - 0.5) * 0.4, 0]);
+    }
+  }
+  scatter(fuse([[new THREE.CylinderGeometry(0.04, 0.08, 1, 5).translate(0, 0.5, 0)], [new THREE.BoxGeometry(0.1, 0.08, 0.18), M4(0, 1, 0.02)]]),
+    sceneMat({ body: 0.32, glow: 'obj', glowK: 0.5, peak: 30, y0: 0, y1: 1.04, fog: 0.75 }), towers, grp);
+  const blades = [[new THREE.BoxGeometry(0.06, 0.06, 0.04)]];
+  for (let k = 0; k < 3; k++) blades.push([new THREE.BoxGeometry(0.05, 0.62, 0.015).translate(0.01, 0.33, 0), M4(0, 0, 0, 0, 0, k * Math.PI * 2 / 3)]);
+  scatter(fuse(blades), sceneMat({ fx: ['SPINZ'], body: 0.32, glow: 'obj', glowK: 0.15, peak: 2, y0: -0.6, y1: 0.6, move: [0, 0.9, 0, 0], fog: 0.75 }), rotors, grp);
+  // bruma que corre entre las capas y nubes que van a la deriva
+  layers(L, grp, sceneMat({ soft: true, fx: ['HAZE'], glow: 'line', glowK: 0.3, fog: 0.3, fxv: [0.35, 0.5, 2.2, 0.35] }), [[-2, -40, 12], [-2, -76, 20], [-2, -126, 30]]);
+  const clouds = [];
+  for (let x = -120; x < len + 160; x += 18 + rnd() * 26) clouds.push([x, 26 + rnd() * 18, -90 - rnd() * 80, 40 + rnd() * 40, 12 + rnd() * 8, 1]);
+  clouds.sort((p, q) => p[2] - q[2]);
+  scatter(new THREE.PlaneGeometry(1, 1), sceneMat({ soft: true, fx: ['CLOUD', 'DRIFT'], body: 0.12, glow: 'line', glowK: 0.5, fog: 0.3, fxv: [0, 0.7, 0, 0], move: [0.5, 0, 0, 0] }), clouds, grp);
+  skyPlane(grp, sceneMat({ soft: true, fx: ['MOON'], glow: 'line', glowK: 0.8, fog: 0, fxv: [0.42, 0, 0, 0] }), { dx: -40, y: 58, z: -285, k: 0.97 }, 64);
+  starField(grp, 700);
+}
+
+// ---- cristales: racimos facetados con brillo interior y borde, esquirlas flotando, una gran formación al fondo
+function crystalCluster(rnd, n) {
+  const parts = [];
+  for (let i = 0; i < n; i++) {
+    const main = i === 0, r = main ? 0.2 : 0.07 + rnd() * 0.09, h = main ? 1 : 0.35 + rnd() * 0.45;
+    const g = fuse([[new THREE.CylinderGeometry(r, r * 1.12, h * 0.78, 6, 1, true).translate(0, h * 0.39, 0)], [new THREE.ConeGeometry(r, h * 0.22, 6, 1, true).translate(0, h * 0.89, 0)]]);
+    const a = rnd() * Math.PI * 2, tilt = main ? (rnd() - 0.5) * 0.15 : 0.25 + rnd() * 0.55, off = main ? 0 : 0.08 + rnd() * 0.14;
+    g.rotateY(rnd() * 3);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationAxis(V(Math.sin(a), 0, -Math.cos(a)), tilt));
+    g.translate(Math.cos(a) * off, -0.04, Math.sin(a) * off);
+    parts.push([g]);
+  }
+  return fuse(parts);
+}
+function buildCrystals(L, grp) {
+  const len = L.endX / BU, rnd = seeded(13);
+  const mat = sceneMat({ fx: ['CRYSTAL'], body: 0.2, glow: 'obj', glowK: 0.5, peak: 2.2, y0: 0, y1: 1, alt: 'line', altTint: 0.3, altK: 0.9, fog: 0.8 });
+  const ground = ridge(L, grp, sceneMat({ body: 0.07, glow: 'obj', glowK: 0.2, peak: 3, y0: 0, y1: 5, fog: 0.9 }), { z: -40, depth: 50, step: 2, nz: 8, h: peakFn(37, 3.5, 0.5, 0.05) });
+  const A = crystalCluster(rnd, 5), B = crystalCluster(rnd, 3), ia = [], ib = [];
+  for (const [z0, zr, s0, s1, gap] of [[-14, 8, 1.5, 3.5, 3], [-28, 16, 3, 7, 5], [-52, 20, 6, 13, 8]]) {
+    for (let x = -60; x < len + 120; x += gap * (0.6 + rnd() * 0.9)) {
+      const z = z0 - rnd() * zr, s = s0 + rnd() * (s1 - s0);
+      (rnd() < 0.55 ? ia : ib).push([x, ground.heightAt(x, z) - 0.3, z, s * (0.8 + rnd() * 0.4), s, s * (0.8 + rnd() * 0.4), (rnd() - 0.5) * 0.2, rnd() * 6, (rnd() - 0.5) * 0.2]);
+    }
+  }
+  scatter(A, mat, ia, grp);
+  scatter(B, mat, ib, grp);
+  // gran formación al fondo, con un halo detrás
+  const big = [], halos = [];
+  for (let x = 10; x < len + 160; x += 120 + rnd() * 70) {
+    const s = 34 + rnd() * 16, z = -130 - rnd() * 20;
+    big.push([x, -2, z, s, s * (1.1 + rnd() * 0.3), s, 0, rnd() * 6, 0]);
+    halos.push([x, s * 0.55, z - 12, s * 2.4, s * 2.4, 1]);
+  }
+  scatter(A.clone(), sceneMat({ fx: ['CRYSTAL'], body: 0.18, glow: 'obj', glowK: 0.6, peak: 2, y0: 0, y1: 1, alt: 'line', altTint: 0.3, altK: 0.8, fog: 0.42 }), big, grp);
+  scatter(new THREE.PlaneGeometry(1, 1), sceneMat({ soft: true, fx: ['RADIAL'], glow: 'obj', glowK: 0.35, alt: 'line', altK: 0.5, fog: 0.3, fxv: [0, 1, 0, 0] }), halos, grp);
+  // esquirlas que flotan y giran despacio (giro y vaivén en el shader)
+  const shards = [];
+  for (let x = -40; x < len + 100; x += 3 + rnd() * 6) shards.push([x, 5 + rnd() * 16, -12 - rnd() * 34, 0.35 + rnd() * 0.5, 1.2 + rnd() * 1.6, 0.35 + rnd() * 0.5]);
+  scatter(new THREE.OctahedronGeometry(1, 0), sceneMat({ fx: ['CRYSTAL', 'SPIN', 'BOB'], body: 0.22, glow: 'obj', glowK: 0.5, peak: 1.5, y0: -1, y1: 1, alt: 'line', altTint: 0.3, altK: 0.9, move: [0, 0.35, 0.7, 0.5], fog: 0.8 }), shards, grp);
+}
+
+// ---- vacío: estructuras geométricas enormes que giran, agujero negro con disco, rejillas, monolitos con juntas de luz
+function buildVoid(L, grp) {
+  const len = L.endX / BU, rnd = seeded(17);
+  const knots = [], icos = [], dodes = [];
+  for (let x = -20; x < len + 120; x += 34 + rnd() * 30) {
+    const k = rnd(), it = [x, 10 + rnd() * 16, -60 - rnd() * 60, 1, 1, 1];
+    const s = k < 0.34 ? 9 + rnd() * 6 : 8 + rnd() * 8;
+    it[3] = it[4] = it[5] = s;
+    (k < 0.34 ? knots : k < 0.67 ? icos : dodes).push(it);
+  }
+  const neon = (glow, k, spin) => sceneMat({ fx: ['NEON', 'SPIN'], glow, glowK: k, move: [0, spin, 0, 0], fog: 0.5 });
+  scatter(new THREE.TorusKnotGeometry(1, 0.035, 200, 5, 2, 3), neon('line', 1.3, 0.12), knots, grp);
+  scatter(bars(edgeSegs(new THREE.IcosahedronGeometry(1, 0)), 0.025), neon('obj', 1.3, 0.1), icos, grp);
+  scatter(bars(edgeSegs(new THREE.DodecahedronGeometry(1, 0)), 0.025), neon('line', 1.1, -0.08), dodes, grp);
+  // monolitos que flotan, con juntas que brillan
+  const mono = [];
+  for (let x = -40; x < len + 100; x += 9 + rnd() * 14) {
+    const h = 8 + rnd() * 14;
+    mono.push([x, 1.5 + rnd() * 5, -24 - rnd() * 36, 1.6 + rnd() * 1.4, h, 0.7 + rnd() * 0.5, 0, (rnd() - 0.5) * 1.2, (rnd() - 0.5) * 0.12]);
+  }
+  scatter(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), sceneMat({ fx: ['SEAMS', 'BOB'], body: 0.05, glow: 'line', glowK: 0.9, peak: 40, fxv: [4, 0, 0, 0], move: [0, 0, 0.6, 0.45], fog: 0.75 }), mono, grp);
+  // rejillas verticales que se alejan
+  layers(L, grp, sceneMat({ soft: true, fx: ['GRID'], glow: 'line', glowK: 0.5, fog: 0.35, fxv: [4, 0.3, 0, 0] }), [[-1, -110, 60], [-1, -185, 100]]);
+  // agujero negro: disco negro (opaco, tapa las estrellas y la mitad trasera del disco), disco de acreción y halo
+  const bh = new THREE.Group(), R = 18;
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  hole.scale.setScalar(R); hole.userData.ownGeo = true;
+  const disk = new THREE.Mesh(new THREE.RingGeometry(1.2, 3.4, 96, 1), sceneMat({ soft: true, fx: ['DISK'], glow: 'line', glowK: 1, alt: 'obj', altTint: 0.4, altK: 1, fog: 0, fxv: [0, 2.2, 0, 0] }));
+  disk.scale.setScalar(R); disk.rotation.set(-Math.PI / 2 + 0.28, 0, 0.18); disk.userData.ownGeo = true;
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), sceneMat({ soft: true, fx: ['HALO'], glow: 'line', glowK: 0.8, alt: 'obj', altTint: 0.5, altK: 1, fog: 0, fxv: [1 / 4.5, 1, 0, 0] }));
+  halo.scale.setScalar(R * 9); halo.position.z = 0.5; halo.userData.ownGeo = true;
+  disk.renderOrder = 1; halo.renderOrder = 2;
+  bh.add(hole, disk, halo);
+  grp.add(bh);
+  W.skyFollow.push({ obj: bh, dx: 30, y: 44, z: -290, k: 0.95 });
+  starField(grp, 900);
+}
+
+// ---- volcán: conos con cráter y ríos de lava, columnas de humo, río de lava al pie y resplandor en el horizonte
+function buildVolcano(L, grp) {
+  const len = L.endX / BU, rnd = seeded(31);
+  mountains(L, grp, [[-200, 24, 44, 34, 50]], { seed: 31, peak: 4, jag: true, sides: 5, glow: 'red', glowK: 0.5, body: 0.06, fog: 0.45 });
+  const rock = sceneMat({ fx: ['CRACKS'], body: 0.07, glow: 'red', glowK: 0.4, peak: 3, y0: 0, y1: 9, alt: '#ff5a1c', altK: 1.6, fog: 0.9 });
+  ridge(L, grp, rock, { z: -34, depth: 14, step: 1.2, nz: 6, h: peakFn(33, 3, 0.5, 0.07) });
+  ridge(L, grp, rock, { z: -62, depth: 30, step: 2.2, nz: 6, h: peakFn(35, 8, 1, 0.035) });
+  // cono volcánico: perfil cóncavo con un cráter hundido
+  const prof = [[1, 0], [0.85, 0.12], [0.62, 0.32], [0.42, 0.56], [0.28, 0.8], [0.19, 0.96], [0.17, 1], [0.12, 0.95], [0.06, 0.9], [0, 0.9]];
+  const vg = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 22), vp = vg.attributes.position;
+  for (let i = 0; i < vp.count; i++) {
+    const x = vp.getX(i), y = vp.getY(i), z = vp.getZ(i);
+    if (y > 0.02 && y < 0.97) { const k = 1 + (hash3(x, y, z) - 0.5) * 0.16; vp.setXYZ(i, x * k, y + (hash3(z, x, y) - 0.5) * 0.03, z * k); }
+  }
+  const cones = [], smoke = [], glow = [];
+  for (let x = 30; x < len + 160; x += 120 + rnd() * 60) {
+    const R = 38 + rnd() * 10, H = 30 + rnd() * 10, z = -125 - rnd() * 10;
+    cones.push([x, -0.5, z, R, H, R, 0, rnd() * 6, 0]);
+    smoke.push([x + 6, H * 0.92 + 34, z - 2, 34, 70, 1]);
+    glow.push([x, H * 0.95, z + 4, 34, 22, 1]);
+  }
+  scatter(vg, sceneMat({ fx: ['LAVA'], side2: true, body: 0.08, glow: 'red', glowK: 0.35, peak: 6, y0: 0, y1: 1, alt: '#ff5a1c', altK: 1.6, fxv: [9, 0, 0, 0], fog: 0.55 }), cones, grp);
+  scatter(new THREE.PlaneGeometry(1, 1), sceneMat({ soft: true, fx: ['RADIAL'], glow: 'red', glowK: 0.6, alt: '#ffb13b', altK: 0.8, fog: 0.4, fxv: [0, 1, 0, 0] }), glow, grp);
+  scatter(new THREE.PlaneGeometry(1, 1), sceneMat({ soft: true, fx: ['SMOKE'], body: 0.12, alt: '#ff5a1c', altK: 1, fog: 0.22, fxv: [0, 0.9, 0, 0] }), smoke, grp);
+  // río de lava al pie de los volcanes y resplandor rojo en el horizonte
+  const river = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), sceneMat({ soft: true, fx: ['LAVA'], body: 0.1, alt: '#ff5a1c', altK: 0.95, fog: 0.8 }));
+  river.scale.set(len + 400, 1, 9); river.position.set(len / 2 + 40, 0.05, -20); river.userData.ownGeo = true;
+  river.renderOrder = 1; // el suelo también es transparente: sin esto lo taparía
+  grp.add(river);
+  layers(L, grp, sceneMat({ soft: true, fx: ['HAZE'], glow: 'red', glowK: 1.4, fog: 0.2, fxv: [0.25, 0.6, 1.2, 0] }), [[-2, -150, 34], [-2, -95, 16]]);
+  sun(grp, '#ff6b3d', '#ff2a3a', 60);
+}
+
+// ---- desierto: dunas con su perfil (cresta y cara de caída), pirámides con aristas de neón, cactus, arcos, calima
+function buildDesert(L, grp) {
+  const len = L.endX / BU, rnd = seeded(19);
+  const dmat = (fog, glowK, y1) => sceneMat({ fx: ['SMOOTH', 'RIPPLES'], body: 0.25, glow: 'obj', glowK, peak: 5, y0: 0, y1, alt: '#ffb36a', altTint: 0.25, altK: 0.45, fog });
+  const near = ridge(L, grp, dmat(1, 0.25, 5), { z: -26, depth: 18, step: 1, nz: 8, h: duneFn(19, 16, 3.5) });
+  const mid = ridge(L, grp, dmat(0.75, 0.35, 9), { z: -52, depth: 28, step: 1.8, nz: 8, h: duneFn(23, 28, 7) });
+  const far = ridge(L, grp, dmat(0.5, 0.45, 16), { z: -100, depth: 50, step: 3, nz: 8, h: duneFn(29, 50, 13) });
+  // pirámides (cuatro caras) con sus aristas de neón
+  const pg = new THREE.BufferGeometry(), c = [[-0.5, 0, 0.5], [0.5, 0, 0.5], [0.5, 0, -0.5], [-0.5, 0, -0.5]], top = [0, 1, 0], tri = [];
+  for (let i = 0; i < 4; i++) tri.push(...c[i], ...c[(i + 1) % 4], ...top);
+  pg.setAttribute('position', new THREE.Float32BufferAttribute(tri, 3));
+  const pyr = [];
+  for (let x = 20; x < len + 160; x += 50 + rnd() * 60) {
+    for (let k = 0, nk = 1 + Math.floor(rnd() * 3); k < nk; k++) {
+      const h = (k ? 10 : 16) + rnd() * 10, px = x + k * (h * 1.6 + 4), z = -92 - rnd() * 12;
+      pyr.push([px, far.heightAt(px, z) - 1.5, z, h * 1.6, h, h * 1.6, 0, (rnd() - 0.5) * 0.4, 0]);
+    }
+  }
+  scatter(pg, sceneMat({ body: 0.15, glow: 'obj', glowK: 0.5, peak: 8, y0: 0, y1: 1, fog: 0.5 }), pyr, grp);
+  const ed = c.map((p, i) => [V(...p), V(...c[(i + 1) % 4])]).concat(c.map((p) => [V(...p), V(...top)]));
+  scatter(bars(ed, 0.012), sceneMat({ fx: ['NEON'], glow: 'obj', glowK: 1.5, fog: 0.5 }), pyr.map((p) => p.slice()), grp);
+  // cactus (tronco y dos brazos) en las dunas cercanas y arcos de roca en las del medio
+  const cyl = (r, h) => new THREE.CylinderGeometry(r, r, h, 6);
+  const cactus = fuse([[cyl(0.1, 1).translate(0, 0.5, 0)], [new THREE.SphereGeometry(0.1, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), M4(0, 1, 0)],
+    [cyl(0.07, 0.22), M4(0.13, 0.42, 0, 0, 0, Math.PI / 2)], [cyl(0.07, 0.3).translate(0, 0.15, 0), M4(0.24, 0.42, 0)],
+    [cyl(0.06, 0.18), M4(-0.11, 0.55, 0, 0, 0, Math.PI / 2)], [cyl(0.06, 0.22).translate(0, 0.11, 0), M4(-0.2, 0.55, 0)]]);
+  const cacti = [], arches = [];
+  for (let x = -40; x < len + 100; x += 5 + rnd() * 12) { const z = -19 - rnd() * 8, s = 2.5 + rnd() * 2; cacti.push([x, near.heightAt(x, z) - 0.2, z, s, s, s, 0, rnd() * 6, 0]); }
+  for (let x = 0; x < len + 120; x += 60 + rnd() * 60) { const z = -48 - rnd() * 8, s = 5 + rnd() * 4; arches.push([x, mid.heightAt(x, z) - 1, z, s, s * (0.8 + rnd() * 0.4), s * 0.8, 0, (rnd() - 0.5) * 0.6, 0]); }
+  scatter(cactus, sceneMat({ body: 0.05, glow: 'obj', glowK: 0.35, peak: 6, y0: 0, y1: 1.1, fog: 1 }), cacti, grp);
+  const ag = fuse([[new THREE.TorusGeometry(1, 0.28, 5, 12, Math.PI)], [new THREE.BoxGeometry(0.6, 1, 0.5).translate(1, -0.5, 0)], [new THREE.BoxGeometry(0.6, 1, 0.5).translate(-1, -0.5, 0)]]).translate(0, 1, 0);
+  const ap = ag.attributes.position;
+  for (let i = 0; i < ap.count; i++) { const x = ap.getX(i), y = ap.getY(i), z = ap.getZ(i), k = (hash3(x, y, z) - 0.5) * 0.12; ap.setXYZ(i, x + k, y + k * 0.5, z + k); }
+  scatter(ag, sceneMat({ body: 0.12, glow: 'obj', glowK: 0.3, peak: 4, y0: 0, y1: 2.3, fog: 0.75 }), arches, grp);
+  layers(L, grp, sceneMat({ soft: true, fx: ['HEAT'], glow: 'line', glowK: 0.4, alt: '#ffd27a', altK: 0.5, fog: 0.4, fxv: [0, 0.6, 0, 0] }), [[-1, -112, 9]]);
+  sun(grp, '#ffd27a', '#ff5a3b', 120);
+}
+
+// ---- circuito: torres de servidores con LEDs, pistas con pulsos de luz, núcleo holográfico y lluvia de datos
+function buildCircuit(L, grp) {
+  const len = L.endX / BU, rnd = seeded(61), towers = [];
+  for (const [z, hmin, hmax] of [[-22, 3, 9], [-40, 6, 16], [-66, 10, 28]]) {
+    for (let x = -50; x < len + 100; x += 2.5 + rnd() * 3.5) towers.push([x, -0.02, z + (rnd() - 0.5) * 6, 1.2 + rnd() * 1.6, hmin + rnd() * (hmax - hmin), 1.2 + rnd() * 1.6]);
+  }
+  scatter(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), sceneMat({ fx: ['LEDS'], body: 0.07, glow: 'line', glowK: 0.9, peak: 40, alt: 'obj', altK: 1, fog: 1 }), towers, grp);
+  // pistas en el suelo: del borde del camino hacia las torres, con quiebros; y una placa en cada extremo
+  const tr = [];
+  for (let x = -40; x < len + 100; x += 1.6 + rnd() * 3) {
+    let px = x, pz = -1.6;
+    for (let k = 0; k < 3; k++) {
+      const dz = 2 + rnd() * 6;
+      tr.push([px, 0.03, pz - dz / 2, 0.1, 0.04, dz]); pz -= dz;
+      if (k < 2) { const dx = 1 + rnd() * 4; tr.push([px + dx / 2, 0.03, pz, dx + 0.1, 0.04, 0.1]); px += dx; }
+    }
+    tr.push([px, 0.03, pz, 0.38, 0.05, 0.38]);
+  }
+  scatter(new THREE.BoxGeometry(1, 1, 1), sceneMat({ fx: ['PULSE'], glow: 'line', glowK: 0.9, alt: 'obj', altTint: 0.3, altK: 1.2, fxv: [0.04, 0.35, 0, 0], fog: 1 }), tr, grp);
+  // núcleo holográfico: coraza de rejilla, corazón que gira, anillos y halo
+  const core = new THREE.Group();
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 2), sceneMat({ soft: true, fx: ['HOLO'], glow: 'line', glowK: 0.9, alt: 'obj', altK: 1, fog: 0.3, fxv: [0, 1, 0, 0] }));
+  shell.scale.setScalar(24);
+  const heart = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), sceneMat({ fx: ['NEON'], glow: 'obj', glowK: 1.6, fog: 0.3 }));
+  heart.scale.setScalar(6);
+  const rings = new THREE.Mesh(fuse([[new THREE.TorusGeometry(1.3, 0.012, 4, 96), M4(0, 0, 0, 1.2, 0, 0)], [new THREE.TorusGeometry(1.5, 0.012, 4, 96), M4(0, 0, 0, 0.4, 0.9, 0)], [new THREE.TorusGeometry(1.7, 0.01, 4, 96), M4(0, 0, 0, -0.6, 0.3, 0.8)]]),
+    sceneMat({ fx: ['NEON'], glow: 'line', glowK: 1.3, fog: 0.3 }));
+  rings.scale.setScalar(24);
+  const cg = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), sceneMat({ soft: true, fx: ['RADIAL'], glow: 'line', glowK: 0.4, alt: 'obj', altK: 0.6, fog: 0.3, fxv: [0, 1, 0, 0] }));
+  cg.scale.setScalar(110); cg.position.z = -30;
+  for (const m of [shell, heart, rings, cg]) { m.userData.ownGeo = true; core.add(m); }
+  grp.add(core);
+  W.skyFollow.push({ obj: core, dx: 34, y: 24, z: -165, k: 0.88 });
+  W.anim.push({ kind: 'spin', obj: shell, k: 0.06 }, { kind: 'spin', obj: heart, k: 0.6 }, { kind: 'spin', obj: rings, k: -0.15 });
+  skyPlane(grp, sceneMat({ soft: true, fx: ['RAIN'], glow: 'line', glowK: 0.8, alt: 'obj', altTint: 0.5, altK: 1.2, fog: 0, fxv: [240, 80, 1, 0] }), { dx: 0, y: 50, z: -235, k: 0.95 }, 600, 180);
+}
+
+// ---- ruinas: templo (columnas con basa y capitel, dinteles, tambores caídos), arcos rotos, una gran puerta
+// con un portal, islas flotantes con hierba y lianas, runas que brillan y rayos de luz
+function buildRuins(L, grp) {
+  const len = L.endX / BU, rnd = seeded(83);
+  const flute = (g) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), r = Math.hypot(x, z); if (r > 0.3) { const k = 1 - 0.07 * (0.5 + 0.5 * Math.cos(Math.atan2(z, x) * 6)); p.setX(i, x * k); p.setZ(i, z * k); } } return g; };
+  const base = [[new THREE.BoxGeometry(1.5, 0.35, 1.5).translate(0, 0.175, 0)], [new THREE.CylinderGeometry(0.62, 0.7, 0.2, 12).translate(0, 0.45, 0)]];
+  const full = fuse(base.concat([[flute(new THREE.CylinderGeometry(0.5, 0.56, 6.6, 12).translate(0, 3.85, 0))],
+    [new THREE.CylinderGeometry(0.76, 0.52, 0.4, 12).translate(0, 7.35, 0)], [new THREE.BoxGeometry(1.6, 0.35, 1.6).translate(0, 7.725, 0)]]));
+  const sh = flute(new THREE.CylinderGeometry(0.5, 0.56, 3, 12, 3).translate(0, 2.05, 0)), sp = sh.attributes.position;
+  for (let i = 0; i < sp.count; i++) if (sp.getY(i) > 3.4) sp.setY(i, sp.getY(i) - hash3(sp.getX(i), 1, sp.getZ(i)) * 0.9);
+  const broken = fuse(base.map(([g]) => [g.clone()]).concat([[sh]]));
+  const mat = sceneMat({ fx: ['RUNES'], body: 0.13, glow: 'obj', glowK: 0.25, peak: 6, y0: 0, y1: 8, alt: 'obj', altTint: 0.3, altK: 1.2, fxv: [0.7, 1.7, 0, 99], fx2: [1.4, 0, 0, 0], fog: 0.9 });
+  const cols = [], brk = [], lint = [], drums = [];
+  for (const [z, s] of [[-20, 1], [-40, 1.5]]) {
+    let run = null;
+    for (let x = -40; x < len + 100; x += (4.5 + rnd() * 1.5) * s) {
+      if (rnd() < 0.33) {
+        brk.push([x, -0.05, z, s, s * (0.6 + rnd() * 0.7), s, (rnd() - 0.5) * 0.08, rnd() * 6, (rnd() - 0.5) * 0.08]);
+        if (rnd() < 0.5) drums.push([x + (1.5 + rnd() * 2) * s, 0.55 * s, z + (rnd() - 0.5) * 3, s, s * (1.2 + rnd()), s, 0, rnd() * 3, Math.PI / 2]);
+        run = null;
+      } else {
+        cols.push([x, -0.05, z, s, s, s, 0, 0, 0]);
+        if (run != null && rnd() < 0.75) lint.push([(run + x) / 2, 7.9 * s + 0.45 * s, z, x - run + 1.6 * s, 0.9 * s, 1.7 * s]);
+        run = x;
+      }
+    }
+  }
+  scatter(full, mat, cols, grp);
+  scatter(broken, mat, brk, grp);
+  scatter(new THREE.CylinderGeometry(0.55, 0.55, 1, 12), mat, drums, grp);
+  scatter(new THREE.BoxGeometry(1, 1, 1), mat, lint, grp);
+  // arcos (enteros y rotos)
+  const arch = (a, hl) => fuse([[new THREE.BoxGeometry(1.2, 8, 1.2).translate(5, 4, 0)], [new THREE.BoxGeometry(1.2, hl, 1.2).translate(-5, hl / 2, 0)], [new THREE.TorusGeometry(5, 0.6, 4, 14, a).translate(0, 8, 0)]]);
+  const arA = [], arB = [];
+  for (let x = 30; x < len + 100; x += 45 + rnd() * 40) { const s = 1 + rnd() * 0.4; (rnd() < 0.5 ? arA : arB).push([x, -0.05, -60 - rnd() * 8, s, s, s, 0, (rnd() - 0.5) * 0.3, 0]); }
+  scatter(arch(Math.PI, 8), mat, arA, grp);
+  scatter(arch(Math.PI * 0.55, 5), mat, arB, grp);
+  // la gran puerta, con runas en los pilonos y un portal que gira dentro
+  const gate = fuse([[new THREE.BoxGeometry(5, 26, 4).translate(9, 13, 0)], [new THREE.BoxGeometry(5, 26, 4).translate(-9, 13, 0)],
+    [new THREE.BoxGeometry(26, 4, 5).translate(0, 28, 0)], [new THREE.BoxGeometry(29, 1.2, 6).translate(0, 30.6, 0)], [new THREE.BoxGeometry(7, 1.6, 6).translate(9, 0.8, 0)], [new THREE.BoxGeometry(7, 1.6, 6).translate(-9, 0.8, 0)]]);
+  const gates = [], portals = [];
+  for (let x = 60; x < len + 160; x += 170 + rnd() * 80) { gates.push([x, -0.05, -100, 1, 1, 1]); portals.push([x, 13, -99.5, 13, 26, 1]); }
+  scatter(gate, sceneMat({ fx: ['RUNES'], body: 0.12, glow: 'obj', glowK: 0.4, peak: 10, y0: 0, y1: 31, alt: 'obj', altTint: 0.3, altK: 1.3, fxv: [3, 25, 9, 0.9], fx2: [0.7, 0, 0, 0], fog: 0.6 }), gates, grp);
+  scatter(new THREE.PlaneGeometry(1, 1), sceneMat({ soft: true, fx: ['PORTAL'], glow: 'obj', glowK: 0.7, alt: 'line', altK: 0.8, fog: 0.5, fxv: [0, 1, 0, 0] }), portals, grp);
+  // islas flotantes: roca en punta con la cara de arriba de hierba y lianas que cuelgan (todo en una geometría)
+  const rock = new THREE.ConeGeometry(1, 1.6, 8, 3).rotateX(Math.PI).translate(0, -0.8, 0), rp = rock.attributes.position;
+  for (let i = 0; i < rp.count; i++) { const x = rp.getX(i), y = rp.getY(i), z = rp.getZ(i); if (y < -0.05) { const k = 1 + (hash3(x, y, z) - 0.5) * 0.4; rp.setXYZ(i, x * k, y + (hash3(z, y, x) - 0.5) * 0.15, z * k); } }
+  const isl = [[rock]];
+  for (let k = 0; k < 6; k++) {
+    const a = k / 6 * Math.PI * 2 + 0.3, vl = 0.7 + (k % 3) * 0.35;
+    const vg = new THREE.PlaneGeometry(0.07, vl, 1, 5).translate(0, -vl / 2, 0), uv = vg.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) + 2);
+    isl.push([vg, M4(Math.cos(a) * 0.75, 0, Math.sin(a) * 0.75, 0, -a, 0)]);
+  }
+  const islands = [];
+  for (let x = -30; x < len + 100; x += 16 + rnd() * 20) { const s = 1.8 + rnd() * 2.2; islands.push([x, 13 + rnd() * 12, -34 - rnd() * 40, s, s * (0.8 + rnd() * 0.5), s, 0, rnd() * 6, 0]); }
+  scatter(fuse(isl), sceneMat({ fx: ['CAP_UP', 'VINES', 'BOB'], side2: true, body: 0.14, glow: 'obj', glowK: 0.45, peak: 2, y0: -1.6, y1: 0, alt: '#5dff7a', altTint: 0.35, altK: 0.4, move: [0.25, 0, 0.6, 0.4], fog: 0.8 }), islands, grp);
+  ridge(L, grp, sceneMat({ body: 0.09, glow: 'line', glowK: 0.4, peak: 4, y0: 0, y1: 22, fog: 0.55 }), { z: -135, depth: 50, step: 4, nz: 6, h: peakFn(87, 16, 2, 0.015) });
+  shafts(L, grp, { seed: 89, gap: 22, y: 20, z: -24, zr: 40, w: 5, h: 50, tilt: 0.3, glow: 'obj', k: 0.35, fog: 0.4 });
+  sun(grp, '#ffb86b', '#ff4fa3', 48);
+}
+
 function buildScenery(L, grp) {
   const theme = THEMES.includes(L.def.theme3d) ? L.def.theme3d : THEME_BY_LEVEL[L.id] || 'ciudad';
   W.theme = theme;
-  W.storm = null; W.timeMats = []; W.lightning = 0;
+  W.storm = null; W.timeMats = []; W.lightning = 0; W.vents = null;
   switch (theme) {
     case 'ciudad': buildCity(L, grp); break;
-    case 'montanas':
-      mountains(L, grp, [[-38, 6, 14, 10, 18], [-64, 12, 26, 18, 30], [-100, 22, 42, 30, 46]], { seed: 9, peak: 6, glowK: 0.9 });
-      sun(grp, '#ffe23b', '#ff4fa3', 70);
-      break;
+    case 'montanas': buildPeaks(L, grp); break;
     case 'atardecer':
       mountains(L, grp, [[-50, 3, 9, 14, 26], [-85, 6, 16, 24, 40]], { seed: 21, peak: 3, sides: 4, glowK: 1.1 });
       sun(grp, '#ffd23a', '#ff3b8f', 110);
       buildCity(L, grp, 0.5);
       break;
-    case 'cristales': {
-      let seed = 13;
-      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-      const items = [];
-      for (let x = -60; x < L.endX / BU + 120; x += 2 + rnd() * 5) {
-        const w = 0.8 + rnd() * 3, h = 3 + rnd() * 12;
-        items.push([x, -0.5 + rnd() * 2, -14 - rnd() * 60, w, h, w, (rnd() - 0.5) * 0.5, rnd() * 3, (rnd() - 0.5) * 0.6]);
-      }
-      scatter(new THREE.OctahedronGeometry(1, 0), farMaterial({ y0: -1, y1: 1, peak: 3.5, glow: 'obj', glowK: 0.45, body: 0.22 }), items, grp);
-      break;
-    }
+    case 'cristales': buildCrystals(L, grp); break;
     case 'espacio':
       starField(grp, 2600);
       planets(L, grp);
       break;
-    case 'vacio': {
-      let seed = 17;
-      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-      for (let x = 0; x < L.endX / BU + 60; x += 26) {
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(9 + rnd() * 6, 0.12, 8, 96), neonOf('#7a5cff', 1.2));
-        ring.position.set(x, 6, -34 - rnd() * 20);
-        ring.userData.ownGeo = true;
-        grp.add(ring);
-        W.anim.push({ kind: 'roll', obj: ring, k: (rnd() - 0.5) * 0.4 });
-      }
-      const items = [];
-      for (let x = -60; x < L.endX / BU + 120; x += 3 + rnd() * 6) items.push([x, -0.05, -20 - rnd() * 70, 0.6 + rnd() * 1.6, 6 + rnd() * 26, 0.6 + rnd() * 1.6, 0, rnd() * 3, 0]);
-      scatter(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), farMaterial({ peak: 12, body: 0.05, glowK: 0.9 }), items, grp);
-      starField(grp, 1200);
-      break;
-    }
-    case 'volcan':
-      mountains(L, grp, [[-36, 8, 18, 10, 18], [-62, 14, 30, 18, 30], [-96, 22, 44, 30, 46]], { seed: 31, peak: 4, jag: true, sides: 5, glow: 'red', glowK: 1.2, body: 0.09 });
-      sun(grp, '#ff6b3d', '#ff2a3a', 80);
-      break;
+    case 'vacio': buildVoid(L, grp); break;
+    case 'volcan': buildVolcano(L, grp); break;
     case 'bosque': {
       // pinos: tronco y tres pisos de copa, en tres filas
       const rnd = seeded(23), trunks = [], tiers = [[], [], []];
@@ -1314,21 +2093,7 @@ function buildScenery(L, grp) {
       lightShafts(L, grp, '#d9ffb0', 30);
       break;
     }
-    case 'desierto': {
-      // dunas suaves, pirámides y un sol enorme
-      const rnd = seeded(19), dunes = [], pyr = [];
-      for (const [z, s0, s1] of [[-30, 6, 12], [-55, 10, 20], [-90, 16, 30]]) {
-        for (let x = -60; x < L.endX / BU + 140; x += s0 + rnd() * s0) dunes.push([x, -0.3, z + (rnd() - 0.5) * 8, s0 + rnd() * (s1 - s0), 1.5 + rnd() * s0 * 0.25, 6 + rnd() * 6]);
-      }
-      for (let x = 20; x < L.endX / BU + 140; x += 45 + rnd() * 60) {
-        const h = 10 + rnd() * 18;
-        pyr.push([x, -0.05, -70 - rnd() * 30, h * 1.6, h, h * 1.6, 0, Math.PI / 4, 0]);
-      }
-      scatter(new THREE.SphereGeometry(0.5, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), farMaterial({ y0: 0, y1: 0.5, peak: 4, body: 0.12, glowK: 0.5 }), dunes, grp);
-      scatter(new THREE.ConeGeometry(0.5, 1, 4).translate(0, 0.5, 0), farMaterial({ peak: 8, body: 0.1, glow: 'obj', glowK: 1 }), pyr, grp);
-      sun(grp, '#ffd27a', '#ff5a3b', 75);
-      break;
-    }
+    case 'desierto': buildDesert(L, grp); break;
     case 'glaciar': {
       // picos de hielo afilados y aurora boreal
       mountains(L, grp, [[-32, 6, 14, 6, 12], [-58, 12, 26, 10, 20], [-96, 22, 44, 20, 36]], { seed: 45, peak: 2.2, jag: true, sides: 4, glow: 'obj', glowK: 0.7, body: 0.16 });
@@ -1339,70 +2104,9 @@ function buildScenery(L, grp) {
       starField(grp, 900);
       break;
     }
-    case 'circuito': {
-      // torres de servidores, pistas de luz y una rejilla de chips
-      const rnd = seeded(61), towers = [], chips = [];
-      for (const [z, hmin, hmax] of [[-22, 3, 9], [-40, 6, 16], [-66, 10, 28]]) {
-        for (let x = -50; x < L.endX / BU + 100; x += 2.5 + rnd() * 3.5) towers.push([x, -0.02, z + (rnd() - 0.5) * 6, 1 + rnd() * 1.6, hmin + rnd() * (hmax - hmin), 1 + rnd() * 1.6]);
-      }
-      for (let x = -40; x < L.endX / BU + 100; x += 6 + rnd() * 8) chips.push([x, 14 + rnd() * 18, -50 - rnd() * 30, 3 + rnd() * 3, 0.3, 3 + rnd() * 3, Math.PI / 2, 0, 0]);
-      scatter(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), farMaterial({ peak: 7, body: 0.07, glow: 'line', glowK: 0.7 }), towers, grp);
-      scatter(new THREE.BoxGeometry(1, 1, 1), farMaterial({ y0: -0.5, y1: 0.5, peak: 1, body: 0.05, glowK: 0.5 }), chips, grp);
-      const len = L.endX / BU + 160;
-      for (let i = 0; i < 9; i++) {
-        const tr = new THREE.Mesh(GEO.box, neonOf(i % 2 ? '#3bffd0' : '#3b8bff', 1.3));
-        tr.scale.set(len, 0.06, 0.06);
-        tr.position.set(len / 2 - 60, 2 + i * 3.2 + rnd() * 1.5, -30 - i * 5);
-        grp.add(tr);
-      }
-      break;
-    }
-    case 'oceano': {
-      // fondo marino: rocas, algas que se mecen, rayos de sol y burbujas
-      const rnd = seeded(71), rocks = [];
-      for (let x = -60; x < L.endX / BU + 120; x += 3 + rnd() * 5) {
-        const w = 1.5 + rnd() * 5;
-        rocks.push([x, -0.6, -16 - rnd() * 60, w, w * (0.4 + rnd() * 0.5), w, rnd(), rnd() * 6, rnd()]);
-      }
-      scatter(new THREE.DodecahedronGeometry(0.6, 0), farMaterial({ y0: -0.6, y1: 0.6, peak: 3, body: 0.14, glow: 'obj', glowK: 0.4 }), rocks, grp);
-      for (let x = -40; x < L.endX / BU + 80; x += 2 + rnd() * 4) {
-        const k = new THREE.Mesh(GEO.box, neonOf(rnd() < 0.5 ? '#3bffb0' : '#3bc6ff', 0.7 + rnd() * 0.5));
-        const h = 3 + rnd() * 7;
-        k.geometry = GEO.box;
-        const g = new THREE.Group();
-        k.scale.set(0.12, h, 0.12); k.position.y = h / 2;
-        g.add(k);
-        g.position.set(x, -0.1, -10 - rnd() * 30);
-        grp.add(g);
-        W.anim.push({ kind: 'sway', obj: g, k: 0.6 + rnd() * 0.8, ph: rnd() * 6 });
-      }
-      lightShafts(L, grp, '#7ae8ff', 18);
-      mountains(L, grp, [[-110, 18, 34, 30, 50]], { seed: 77, peak: 4, glowK: 0.4, body: 0.08 });
-      break;
-    }
-    case 'ruinas': {
-      // columnas de un templo (algunas rotas), arcos y rocas flotando
-      const rnd = seeded(83), cols = [], caps = [], rocks = [];
-      for (const [z, h0] of [[-20, 8], [-42, 13]]) {
-        for (let x = -40; x < L.endX / BU + 100; x += 5 + rnd() * 3) {
-          const broken = rnd() < 0.35, h = h0 * (broken ? 0.3 + rnd() * 0.4 : 1);
-          cols.push([x, -0.05, z, 1.1, h, 1.1, broken ? (rnd() - 0.5) * 0.2 : 0, 0, broken ? (rnd() - 0.5) * 0.2 : 0]);
-          if (!broken) caps.push([x, h, z, 1.8, 0.5, 1.8]);
-        }
-      }
-      for (let x = -40; x < L.endX / BU + 100; x += 9 + rnd() * 14) rocks.push([x, 12 + rnd() * 16, -40 - rnd() * 40, 2 + rnd() * 4, 1.5 + rnd() * 3, 2 + rnd() * 4, rnd(), rnd() * 6, rnd()]);
-      scatter(new THREE.CylinderGeometry(0.5, 0.5, 1, 10).translate(0, 0.5, 0), farMaterial({ peak: 3, body: 0.12, glowK: 0.5 }), cols, grp);
-      scatter(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), farMaterial({ peak: 1, body: 0.12, glow: 'obj', glowK: 0.8 }), caps, grp);
-      scatter(new THREE.IcosahedronGeometry(0.6, 0), farMaterial({ y0: -0.6, y1: 0.6, peak: 2, body: 0.1, glow: 'obj', glowK: 0.6 }), rocks, grp);
-      for (let x = 30; x < L.endX / BU + 100; x += 70 + rnd() * 40) {
-        const arch = new THREE.Mesh(new THREE.TorusGeometry(10, 0.25, 6, 48, Math.PI), neonOf('#ffd23a', 0.9));
-        arch.position.set(x, 0, -70);
-        arch.userData.ownGeo = true;
-        grp.add(arch);
-      }
-      sun(grp, '#ffb86b', '#ff4fa3', 48);
-      break;
-    }
+    case 'circuito': buildCircuit(L, grp); break;
+    case 'oceano': buildOcean(L, grp); break;
+    case 'ruinas': buildRuins(L, grp); break;
     case 'tormenta':
       mountains(L, grp, [[-40, 8, 16, 12, 20], [-70, 14, 28, 20, 32], [-110, 22, 40, 30, 46]], { seed: 91, peak: 6, jag: true, sides: 5, glowK: 0.6, body: 0.05 });
       buildCity(L, grp, 0.6);
@@ -2105,8 +2809,11 @@ function frame(view, dt) {
   for (const sc of W.scenery) {
     const u = sc.mat.uniforms;
     u.uBody.value.copy(bg).multiplyScalar(sc.body);
-    u.uGlow.value.copy(sc.glow === 'obj' ? cols.obj : sc.glow === 'red' ? RED_GLOW : cols.line).multiplyScalar(sc.glowK * (1 + pulse * 0.6));
-    u.uFog.value.copy(fogC); u.uFogD.value = fogD; u.uBeat.value = beat;
+    u.uGlow.value.copy(sceneryColor(sc.glow, cols)).multiplyScalar(sc.glowK * (1 + pulse * 0.6));
+    u.uFog.value.copy(fogC); u.uFogD.value = fogD * sc.fog; u.uBeat.value = beat;
+    // materiales de sceneMat: segundo color y modo sin destellos
+    if (sc.alt) { u.uAlt.value.copy(sceneryColor(sc.alt, cols)); if (sc.altTint) u.uAlt.value.lerp(cols.line, sc.altTint); u.uAlt.value.multiplyScalar(sc.altK); }
+    if (u.uCalm) u.uCalm.value = W.reduceFlash ? 1 : 0;
   }
   // objetos y decorados movidos, girados, apagados o desvanecidos por los triggers de grupo (Sim.groupState,
   // función pura de la x del jugador: la misma que usa la física). view.gsX la fuerza (p. ej. el editor).
@@ -2182,6 +2889,14 @@ function frame(view, dt) {
         a.obj.rotation.x += dt * a.k; a.obj.rotation.y += dt * a.k * 0.7;
         a.obj.position.y = a.y0 + Math.sin(t * 0.6 + a.ph) * 0.6;
         break;
+      case 'swim': {
+        // nada a lo lejos: avanza despacio respecto a la cámara y reaparece por el otro lado fuera de la vista
+        const sp = a.span;
+        a.obj.position.x = W.camera.position.x + (((a.ph + t * a.v) % sp) + sp) % sp - sp / 2;
+        a.obj.position.y = a.y0 + Math.sin(t * 0.3 + a.ph) * 2;
+        a.obj.rotation.z = Math.sin(t * 0.3 + a.ph + 1) * 0.08;
+        break;
+      }
     }
   }
 
