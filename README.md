@@ -31,7 +31,7 @@ npm run build        # versión para publicar en dist/ (subir la carpeta entera)
 npm run preview      # sirve dist/ en http://localhost:8792 para probar la versión final
 ```
 
-Hecho con Vite. Todo va dentro del juego (Three.js 0.170.0 y las fuentes Lilita One y Nunito), sin depender de
+Hecho con Vite. Todo va dentro del juego (Three.js 0.170.0 y la fuente Chakra Petch), sin depender de
 servicios externos. Es una PWA: se puede instalar como app y, una vez abierto, funciona sin conexión (las canciones
 se guardan la primera vez que suenan). `dist/` usa rutas relativas, así que sirve en cualquier carpeta (itch.io,
 GitHub Pages, Electron, Capacitor).
@@ -73,7 +73,7 @@ src/niveles/    un archivo por nivel
 src/tracks.js   datos medidos de cada canción: BPM, primer compás, duración, energía por compás
 public/music/   las canciones en MP3 (recortadas al final de una sección, volumen igualado a −13 LUFS); lo que queda
                 tras la meta de un nivel (r.end) se quita solo (levels.js, recortar)
-public/icons/   íconos de la app (PWA) y favicon
+public/icons/   íconos de la app (PWA), favicon y garaje.webp (miniaturas de los 96 modelos, de Blender)
 src/audio.js    reproducción de las canciones, música sintetizada de respaldo y efectos
 src/meta.js     progreso: orbes, diamantes, tienda, logros, misiones, cofres y música propia por nivel
 src/demos.js    rutas ganadoras del bot para la demo del menú (generado por tools/solve-demos.js)
@@ -81,7 +81,8 @@ src/main.js     punto de entrada: carga los scripts en orden y arranca el juego
 assets/modelos.glb  modelos del jugador (exportados de Blender; Vite lo copia a dist/assets)
 src/world.js    todo lo 3D: escena, materiales, construcción del nivel, jugador, partículas, posproceso y cámara
 src/game.js     bucle de paso fijo, entrada, cámara vertical, menús y guardado (localStorage neondash3d.v1)
-src/index.html  interfaz y estilos
+src/index.html  interfaz (pantallas y sprite de íconos SVG)
+src/ui.css      estilos: arcade neón (paneles con esquinas cortadas, botones en paralelogramo, Chakra Petch)
 vite.config.js  Vite + PWA; sirve world.js, game.js y meta.js juntos como un módulo (comparten ámbito)
 ```
 

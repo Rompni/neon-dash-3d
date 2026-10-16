@@ -258,9 +258,9 @@ function boot() {
     g.fill(); g.stroke();
     g.fillStyle = color;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '900 60px Nunito, sans-serif';
+    g.font = "700 60px 'Chakra Petch', sans-serif";
     g.fillText(icon, 64, lbl ? 52 : 66);
-    if (lbl) { g.fillStyle = '#ffffff'; g.font = '900 34px Nunito, sans-serif'; g.fillText(lbl.slice(0, 7), 64, 100); }
+    if (lbl) { g.fillStyle = '#ffffff'; g.font = "700 34px 'Chakra Petch', sans-serif"; g.fillText(lbl.slice(0, 7), 64, 100); }
     const tex = new THREE.CanvasTexture(c);
     if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
     texCache.set(key, tex);
@@ -826,7 +826,7 @@ function boot() {
   .ed-pal button.on { box-shadow: inset 0 0 0 2px var(--gold), 0 0 12px rgba(255, 207, 74, 0.45); background: rgba(255, 207, 74, 0.12); }
   .ed-pal svg { width: 100%; height: 100%; display: block; }
   .ed-props { border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px; overflow-y: auto; flex: 1 1 auto; min-height: 0; display: grid; gap: 7px; align-content: start; }
-  .ed-props h3 { margin: 0; font-family: 'Lilita One', sans-serif; font-weight: 400; font-size: 18px; }
+  .ed-props h3 { margin: 0; font-family: 'Chakra Petch', sans-serif; font-weight: 400; font-size: 18px; }
   .ed-props .tag, .ed-card .tag { color: var(--muted); font-weight: 800; font-size: 12px; }
   .ed-f { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 800; font-size: 14px; }
   .ed-f select, .ed-f input[type=number], .ed-f input[type=text] { font: inherit; font-weight: 800; font-size: 14px; color: var(--text); background: #1d1745; border: 2px solid rgba(255, 255, 255, 0.14); border-radius: 8px; padding: 4px 6px; max-width: 170px; user-select: text; -webkit-user-select: text; }
@@ -851,7 +851,7 @@ function boot() {
   .ed-list .panel { width: min(560px, 100%); max-height: calc(100% - 8px); display: flex; flex-direction: column; }
   .ed-cards { overflow-y: auto; display: grid; gap: 10px; margin: 6px 0 4px; padding: 2px; }
   .ed-card { background: rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 10px 12px; }
-  .ed-card h3 { margin: 0 0 2px; font-family: 'Lilita One', sans-serif; font-weight: 400; font-size: 20px; overflow-wrap: anywhere; }
+  .ed-card h3 { margin: 0 0 2px; font-family: 'Chakra Petch', sans-serif; font-weight: 400; font-size: 20px; overflow-wrap: anywhere; }
   .ed-card .info { color: var(--muted); font-weight: 800; font-size: 13px; margin-bottom: 8px; }
   .ed-card .ed-acts .ed-b { height: 32px; font-size: 14px; }
   .ed-empty { color: var(--muted); font-weight: 800; text-align: center; padding: 16px 6px; margin: 0; }

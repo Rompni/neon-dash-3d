@@ -17,6 +17,11 @@ const DESIGNS = {
   cube: styles('cubo'), ship: styles('nave'), ball: styles('bola'), ufo: styles('ovni'), wave: styles('onda'),
   robot: styles('robot'), spider: styles('arana'), swing: styles('swing'),
 };
+// Ícono SVG del sprite de index.html (sustituye a los emojis).
+const ico = (n) => `<svg class="i"><use href="#i-${n}"/></svg>`;
+// Miniatura del garaje: posición en public/icons/garaje.webp (12 estilos × 8 modos, hecha con Blender).
+const THUMB_ROW = { cube: 0, ship: 1, ball: 2, ufo: 3, wave: 4, robot: 5, spider: 6, swing: 7 };
+const thumbPos = (mode, k) => `${(k / 11) * 100}% ${(THUMB_ROW[mode] / 7) * 100}%`;
 const MODE_LABEL = { cube: 'Cubo', ship: 'Nave', ball: 'Bola', ufo: 'Ovni', wave: 'Onda', robot: 'Robot', spider: 'Araña', swing: 'Swing' };
 const PALETTES = [['#27e3ff', '#ffd23a'], ['#5dff7a', '#27e3ff'], ['#ff4fa3', '#ffe23b'], ['#ffb13b', '#ff3b3b'], ['#b48cff', '#5dff7a'], ['#ffffff', '#ff4fa3']];
 const $ = (id) => document.getElementById(id);
@@ -480,7 +485,7 @@ function showComplete() {
   const secs = Math.round(s.tick / TPS);
   $('doneTime').textContent = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
   $('doneCoins').textContent = got + '/' + L.coins.length;
-  $('doneReward').textContent = game.lastReward || '';
+  $('doneReward').innerHTML = game.lastReward || '';
   $('doneNext').hidden = !!game.custom || game.sel >= defs.length - 1;
   showScreen('complete');
   $('doneNext').hidden ? $('doneRetry').focus() : $('doneNext').focus();
@@ -701,8 +706,8 @@ function renderLevelCard() {
   const def = defs[game.sel];
   $('lvName').textContent = def.name;
   $('lvDiff').textContent = def.difficulty || '';
-  $('lvTime').textContent = '⏱ ' + fmtDur(levelDuration(def));
-  $('lvStars').textContent = '★'.repeat(Math.min(10, def.stars || 0));
+  $('lvTime').innerHTML = ico('clock') + ' ' + fmtDur(levelDuration(def));
+  $('lvStars').innerHTML = ico('star').repeat(Math.min(10, def.stars || 0));
   const modes = new Set([def.startMode || 'cube']);
   for (const o of def.objects) if (o.t === 'portal' && MODE_NAME[o.kind]) modes.add(o.kind);
   $('lvModes').textContent = 'Modos: ' + Array.from(modes).map((m) => MODE_NAME[m]).join(' · ');
@@ -741,10 +746,9 @@ function renderGarage() {
   const look = game.garagePreview || cur;
   $('garageList').innerHTML = designsAvailable(mode).map(([id, name, k]) => {
     const open = styleUnlocked(k);
-    const [a, b] = STYLE_COLORS[k];
-    const label = id === cur ? 'Elegido' : open ? 'Elegir' : `🔒 ${STYLE_COINS[k]} monedas`;
+    const label = id === cur ? `${ico('check')} Elegido` : open ? 'Elegir' : `${ico('lock')} ${STYLE_COINS[k]}`;
     return `<button class="design${id === cur ? ' on' : ''}${id === look && id !== cur ? ' look' : ''}${open ? '' : ' locked'}" data-id="${id}" data-k="${k}">` +
-      `<i class="dot" style="background:linear-gradient(135deg, ${a} 50%, ${b} 50%)"></i><b>${name}</b><span>${label}</span></button>`;
+      `<i class="thumb" style="background-position:${thumbPos(mode, k)}"></i><b>${name}</b><span>${label}</span></button>`;
   }).join('');
   $('garagePalettes').innerHTML = `<div class="seg"><button class="${save.designColors ? 'on' : ''}" data-dc="1">Del diseño</button><button class="${save.designColors ? '' : 'on'}" data-dc="0">Mis colores</button></div>` +
     (save.designColors ? '' : PALETTES.map(([a, b], k) => `<button class="swatch${k === save.palette ? ' on' : ''}" data-pal="${k}" aria-label="Colores ${k + 1}" style="background:linear-gradient(135deg, ${a} 50%, ${b} 50%)"></button>`).join(''));
@@ -755,7 +759,7 @@ function renderGarage() {
     if (!styleUnlocked(k)) {
       // bloqueado: se enseña igual, para ver cómo es
       game.garagePreview = b.dataset.id;
-      $('garageMsg').textContent = `🔒 Vista previa. Se desbloquea al recoger ${STYLE_COINS[k]} monedas (llevas ${totalCoins()}).`;
+      $('garageMsg').textContent = `Vista previa. Se desbloquea al recoger ${STYLE_COINS[k]} monedas (llevas ${totalCoins()}).`;
       applyDesigns(); renderGarage();
       return;
     }

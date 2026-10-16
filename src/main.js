@@ -1,9 +1,9 @@
 // Punto de entrada (Vite). El orden importa: los scripts clásicos dejan sus globales (Sim, Tracks, Levels, Solver,
 // Sound, Demos) antes de que arranque el juego, y el editor va al final.
-import '@fontsource/lilita-one/400.css';
-import '@fontsource/nunito/600.css';
-import '@fontsource/nunito/800.css';
-import '@fontsource/nunito/900.css';
+import '@fontsource/chakra-petch/500.css';
+import '@fontsource/chakra-petch/600.css';
+import '@fontsource/chakra-petch/700.css';
+import './ui.css';
 
 import './sim.js';
 import './tracks.js';

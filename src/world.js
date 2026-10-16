@@ -552,9 +552,24 @@ function initPost() {
   W.blackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
 }
 // Pinta el jugador de negro (sólo para la pasada del bloom), salvo lo que sí debe brillar: el fuego del motor.
+// El neón del jugador sí entra, pero a un tercio: entero formaba un halo más grande que el propio modelo.
+const PLAYER_NEON_BLOOM = 0.35;
 function hidePlayerFromBloom(on) {
   for (const pl of [W.player, W.twin]) if (pl) pl.group.traverse((o) => {
     if (!o.isMesh) return;
+    const nm = o.material;
+    if (nm && nm.userData.neon && !nm.isShaderMaterial) {
+      if (on && nm.userData.bloomSave == null) {
+        nm.userData.bloomSave = nm.emissiveIntensity != null ? nm.emissiveIntensity : -1;
+        if (nm.emissiveIntensity != null) nm.emissiveIntensity *= PLAYER_NEON_BLOOM;
+        nm.userData.bloomColor = nm.color.clone(); nm.color.multiplyScalar(PLAYER_NEON_BLOOM);
+      } else if (!on && nm.userData.bloomSave != null) {
+        if (nm.userData.bloomSave >= 0) nm.emissiveIntensity = nm.userData.bloomSave;
+        nm.color.copy(nm.userData.bloomColor);
+        nm.userData.bloomSave = null;
+      }
+      return;
+    }
     if (on) {
       const m = o.material;
       if (m.isShaderMaterial || m.userData.neon || (m.emissiveIntensity > 1 && /motor/.test(m.name))) return;
@@ -1624,7 +1639,8 @@ function tame(root) {
     if (!o.isMesh || o.userData.outline) return;
     const m = o.material;
     if (!m || !m.isMeshStandardMaterial || m.transparent || m.userData.neon) return;
-    if (m.emissiveIntensity > 1) { m.emissiveIntensity = /motor/.test(m.name) ? 1.3 : 0.9; return; }
+    // la llama del motor brilla con su color pero no entra en el bloom (si no, un disco blanco más grande que la nave)
+    if (m.emissiveIntensity > 1) { m.emissiveIntensity = /motor/.test(m.name) ? 0.95 : 0.9; return; }
     if (!done.has(m)) {
       const n = new THREE.MeshPhysicalMaterial({
         name: m.name, color: m.color.clone().multiplyScalar(0.82), map: m.map,
@@ -1880,7 +1896,8 @@ function particle(x, y, z, vx, vy, vz, life, size, color, opts) {
   if (P.n >= PMAX) return;
   const i = P.n++;
   const c = color.isColor ? color : new THREE.Color(color);
-  P.pos.set([x, y, z], i * 3); P.vel.set([vx, vy, vz], i * 3); P.col.set([c.r * 2, c.g * 2, c.b * 2], i * 3);
+  const k = opts && opts.k != null ? opts.k : 2; // brillo (aditivo): las estelas del jugador van más suaves
+  P.pos.set([x, y, z], i * 3); P.vel.set([vx, vy, vz], i * 3); P.col.set([c.r * k, c.g * k, c.b * k], i * 3);
   P.life[i] = P.max[i] = life; P.size[i] = P.s0[i] = size; P.alpha[i] = 1;
   P.drag[i] = opts && opts.drag != null ? opts.drag : 2; P.grav[i] = opts && opts.grav || 0; P.shape[i] = opts && opts.square ? 1 : 0;
 }
@@ -2183,14 +2200,14 @@ function frame(view, dt) {
       for (let i = spawnN(2); i > 0; i--) particle(px + (Math.random() - 0.5) * 0.35 * sc, py - 0.5 * sc * (view.flip || 1), (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.6, -(view.flip || 1) * (2 + Math.random() * 2), 0, 0.3, 0.13, i ? '#ffb13b' : '#ffffff', { drag: 3 });
     }
     if (view.mode === 'robot' || view.mode === 'spider') animateRig(pl, view.mode, view.garage ? t * 3 : px, view.garage || !!view.grounded, dt);
-    if (PIXEL_TRAIL[view.mode] && !view.garage) for (let n = spawnN(0.55); n > 0; n--) {
+    if (PIXEL_TRAIL[view.mode] && !view.garage) for (let n = spawnN(0.4); n > 0; n--) {
       const [ox, oy] = PIXEL_TRAIL[view.mode];
-      particle(px + ox * sc + (Math.random() - 0.5) * 0.15, py + oy * sc * fl + (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.3, -1.5 - Math.random() * 1.5, (Math.random() - 0.5) * 0.4 + oy * 0.8 * fl, 0, 0.45 + Math.random() * 0.25, 0.1 + Math.random() * 0.07, Math.random() < 0.7 ? pl.c2 : pl.c1, { drag: 1.5, square: true });
+      particle(px + ox * sc + (Math.random() - 0.5) * 0.15, py + oy * sc * fl + (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.3, -1.5 - Math.random() * 1.5, (Math.random() - 0.5) * 0.4 + oy * 0.8 * fl, 0, 0.45 + Math.random() * 0.25, 0.1 + Math.random() * 0.07, Math.random() < 0.7 ? pl.c2 : pl.c1, { drag: 1.5, square: true, k: 0.9 });
     }
     if (view.mode === 'ship') {
       const fc = flameColor(t);
       pl.flame.uniforms.uColor.value.copy(fc);
-      for (let n = spawnN(0.7); n > 0; n--) particle(px - 0.55 * sc, py - 0.02 * fl, 0.2, -2 - Math.random() * 2, (Math.random() - 0.5), 0, 0.35, 0.12, fc, { drag: 2, square: W.cos.flame === 'pixeles' });
+      for (let n = spawnN(0.5); n > 0; n--) particle(px - 0.55 * sc, py - 0.02 * fl, 0.2, -2 - Math.random() * 2, (Math.random() - 0.5), 0, 0.3, 0.1, fc, { drag: 2, square: W.cos.flame === 'pixeles', k: 1 });
     }
     pl.light.intensity = 1.6 + beat * 1.2;
   }

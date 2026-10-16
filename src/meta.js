@@ -76,8 +76,8 @@ const ACH = [
 ];
 function giveReward(r, why) {
   const parts = [];
-  if (r.orbs) { save.orbs += r.orbs; save.stats.orbsEarned += r.orbs; parts.push(`+${r.orbs} ●`); }
-  if (r.diamonds) { save.diamonds += r.diamonds; parts.push(`+${r.diamonds} ◆`); }
+  if (r.orbs) { save.orbs += r.orbs; save.stats.orbsEarned += r.orbs; parts.push(`+${r.orbs} orbes`); }
+  if (r.diamonds) { save.diamonds += r.diamonds; parts.push(`+${r.diamonds} diamantes`); }
   if (why) toast(`${why}  ${parts.join('  ')}`);
   return parts.join('  ');
 }
@@ -86,7 +86,7 @@ function checkAchievements() {
   for (const [id, name, , test, reward] of ACH) {
     if (save.ach[id] || !test()) continue;
     save.ach[id] = Date.now();
-    giveReward(reward, `🏆 Logro: ${name}`);
+    giveReward(reward, `Logro: ${name}`);
     any = true;
   }
   if (any) persist();
@@ -167,11 +167,11 @@ const Meta = {
       Meta.progress(100);
       if (!save.completed[def.id]) {
         save.completed[def.id] = Date.now();
-        out.push(`+${def.stars || 0} ★`);
+        out.push(`${ico('star')} +${def.stars || 0}`);
         const dia = Math.max(2, def.stars || 0);
-        save.diamonds += dia; out.push(`+${dia} ◆`);
+        save.diamonds += dia; out.push(`${ico('diamond')} +${dia}`);
       }
-      if (game.lastOrbs) out.unshift(`+${game.lastOrbs} ●`);
+      if (game.lastOrbs) out.unshift(`${ico('orb')} +${game.lastOrbs}`);
     }
     persist(); checkAchievements();
     return out.join('   ');
@@ -189,7 +189,7 @@ function toast(msg) {
 }
 function renderWallet() {
   if (!save.stats || !save.completed) return; // aún sin inicializar (arranque de game.js)
-  const html = `<span title="Estrellas">★ ${starsTotal()}</span><span title="Diamantes">◆ ${save.diamonds}</span><span title="Orbes">● ${save.orbs}</span><span title="Monedas">⬤ ${totalCoins()}</span>`;
+  const html = `<span title="Estrellas">${ico('star')} ${starsTotal()}</span><span title="Diamantes">${ico('diamond')} ${save.diamonds}</span><span title="Orbes">${ico('orb')} ${save.orbs}</span><span title="Monedas">${ico('coin')} ${totalCoins()}</span>`;
   document.querySelectorAll('[data-wallet]').forEach((el) => { el.innerHTML = html; });
 }
 function renderRewards(tab) {
@@ -200,32 +200,33 @@ function renderRewards(tab) {
     .map(([k, n]) => `<button class="${k === t ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('');
   let html = '';
   if (t === 'tienda') {
+    const CAT_ICO = { Estela: 'trail', Muerte: 'burst', Llama: 'flame', Brillo: 'glow' };
     for (const cat of ['Estela', 'Muerte', 'Llama', 'Brillo']) {
-      html += `<h3>${cat}</h3><div class="shop-grid">` + SHOP.filter((it) => it.cat === cat).map((it) => {
+      html += `<h3>${ico(CAT_ICO[cat])} ${cat}</h3><div class="shop-grid">` + SHOP.filter((it) => it.cat === cat).map((it) => {
         const owned = save.owned.includes(it.id), eq = owned && isEquipped(it);
         const sw = it.cat === 'Brillo' && itemValue(it.id) ? `<i class="dot" style="background:${itemValue(it.id)}"></i>` : '';
-        const label = eq ? 'Equipado' : owned ? 'Equipar' : `${it.price} ${it.dia ? '◆' : '●'}`;
+        const label = eq ? `${ico('check')} Equipado` : owned ? 'Equipar' : `${ico(it.dia ? 'diamond' : 'orb')} ${it.price}`;
         return `<button class="shop-item${eq ? ' on' : ''}${owned ? '' : ' buy'}" data-item="${it.id}">${sw}<b>${it.name}</b><span>${label}</span></button>`;
       }).join('') + '</div>';
     }
   } else if (t === 'cofres') {
     html = '<div class="chests">' + Object.entries(CHESTS).map(([k, c]) => {
       const left = chestLeft(k);
-      return `<div class="chest${left ? '' : ' ready'}"><div class="chest-ico">${k === 'big' ? '🎁' : '📦'}</div><b>${c.name}</b>` +
-        `<span>${c.orbs[0]}–${c.orbs[1]} ● ${c.diaChance < 1 ? 'y a veces' : 'y'} ${c.dia[0] || 1}–${c.dia[1]} ◆</span>` +
+      return `<div class="chest${left ? '' : ' ready'}"><div class="chest-ico">${ico(k === 'big' ? 'gift' : 'chest')}</div><b>${c.name}</b>` +
+        `<span>${ico('orb')} ${c.orbs[0]}–${c.orbs[1]} ${c.diaChance < 1 ? 'y a veces' : 'y'} ${ico('diamond')} ${c.dia[0] || 1}–${c.dia[1]}</span>` +
         (left ? `<span class="wait" data-wait="${k}">Abre en ${fmtTime(left)}</span>` : `<button class="btn small" data-chest="${k}">Abrir</button>`) + '</div>';
     }).join('') + '</div>';
   } else if (t === 'misiones') {
     html = '<p class="rw-note">Se renuevan cada día.</p>' + save.quests.list.map((q, i) => {
       const qt = QUEST_TYPES.find((x) => x.type === q.type), prog = Math.min(q.goal, questProgress(q)), done = prog >= q.goal;
       return `<div class="quest${done ? ' done' : ''}"><div><b>${qt.text(q.goal)}</b><div class="track"><div class="fill" style="width:${prog / q.goal * 100}%"></div></div><span>${prog} / ${q.goal}</span></div>` +
-        (q.claimed ? '<span class="claimed">✔ Hecha</span>' : done ? `<button class="btn small" data-quest="${i}">+${q.reward} ◆</button>` : `<span class="reward">${q.reward} ◆</span>`) + '</div>';
+        (q.claimed ? `<span class="claimed">${ico('check')} Hecha</span>` : done ? `<button class="btn small" data-quest="${i}">+${q.reward} ${ico('diamond')}</button>` : `<span class="reward">${ico('diamond')} ${q.reward}</span>`) + '</div>';
     }).join('');
   } else {
     const n = Object.keys(save.ach).length;
     html = `<p class="rw-note">${n} de ${ACH.length} logros</p><div class="achs">` + ACH.map(([id, name, desc, , r]) => {
       const got = !!save.ach[id];
-      return `<div class="ach${got ? ' got' : ''}"><span class="ico">${got ? '🏆' : '🔒'}</span><div><b>${name}</b><span>${desc}</span></div><span class="reward">${r.orbs ? r.orbs + ' ●' : r.diamonds + ' ◆'}</span></div>`;
+      return `<div class="ach${got ? ' got' : ''}"><span class="ico">${ico(got ? 'trophy' : 'lock')}</span><div><b>${name}</b><span>${desc}</span></div><span class="reward">${r.orbs ? ico('orb') + ' ' + r.orbs : ico('diamond') + ' ' + r.diamonds}</span></div>`;
     }).join('') + '</div>';
   }
   $('rwBody').innerHTML = html;
@@ -248,7 +249,7 @@ function renderRewards(tab) {
     const q = save.quests.list[Number(b.dataset.quest)];
     if (q.claimed) return;
     q.claimed = true;
-    giveReward({ diamonds: q.reward }, '✔ Misión completada');
+    giveReward({ diamonds: q.reward }, 'Misión completada');
     Sound.sfx('coin'); persist(); renderRewards();
   }));
 }
