@@ -28,6 +28,11 @@ no mencionar otros juegos en código ni textos). Usa la física de Neon Dash (re
   `test/framerate.test.js` lo comprueba a 30/60/144/240 fps.
 - Tarjeta de nivel con duración (⏱) y nombre de la canción. Créditos de la música en Ajustes.
 
+- **Modo mod (dueño):** en `npm run dev`, el editor muestra "Niveles principales · Mod": abre un nivel oficial,
+  edítalo y "Guardar en el juego" lo escribe en `src/niveles/datos/<id>.json` (levels.js lo usa en lugar del
+  archivo del nivel). "Original" lo borra. En la versión publicada no aparece.
+- **Idiomas:** inglés por defecto, español opcional (`src/i18n.js`, claves en/es).
+
 ## Cómo trabajar
 
 ```

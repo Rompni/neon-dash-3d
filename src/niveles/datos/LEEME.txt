@@ -1,0 +1,3 @@
+Datos de niveles principales editados con el modo mod del editor (npm run dev).
+Cada <id>.json sustituye objetos, decorados, triggers, colores y largo del nivel src/niveles/<id>.js.
+Tras guardar: npm test, node test/bot.js 12 <id> y node tools/solve-demos.js 6 <id>.

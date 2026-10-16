@@ -265,6 +265,12 @@
     'ed.l.empty': 'You don\'t have any levels yet. Press "New level" to start, or import one with a code.',
     'ed.l.info': '{n} objects · ~{s}s · {modes}',
     'ed.l.edit': '✎ Edit', 'ed.l.play': '▶ Play', 'ed.l.dup': '⧉ Duplicate', 'ed.l.share': '⇪ Share',
+    // ---- modo mod (sólo en desarrollo)
+    'ed.mod.title': 'Main levels · Mod', 'ed.mod.text': 'Only in your development build (npm run dev). Edit an official level and save it to the game.',
+    'ed.mod.edit': '✎ Edit (mod)', 'ed.mod.modded': 'modified', 'ed.mod.save': '💾 Save to game', 'ed.mod.saveTitle': 'Write this level to src/niveles/datos (mod)',
+    'ed.mod.reset': '↺ Original', 'ed.mod.resetTitle': 'Restore the original level', 'ed.mod.resetText': 'This deletes your saved changes to this main level and goes back to the version in its level file.',
+    'ed.mod.saved': 'Saved to {file}. Reload the page to play it; then run the bot and regenerate the demos.', 'ed.mod.restored': 'Original level restored. Reload the page to see it.',
+    'ed.mod.err': 'Could not save: {msg}',
     'ed.l.delAria': 'Delete {name}', 'ed.l.delAsk': 'Delete "{name}"?', 'ed.l.delYes': 'Yes, delete', 'ed.l.delNo': 'No',
     // ---- editor: nombres por defecto y avisos
     'ed.n.new': 'My level {n}', 'ed.n.untitled': 'Untitled', 'ed.n.imported': 'Imported level', 'ed.n.copy': '{name} (copy)',
@@ -518,6 +524,12 @@
     'ed.l.empty': 'Todavía no tienes niveles. Pulsa "Nuevo nivel" para empezar o importa uno con un código.',
     'ed.l.info': '{n} objetos · ~{s} s · {modes}',
     'ed.l.edit': '✎ Editar', 'ed.l.play': '▶ Jugar', 'ed.l.dup': '⧉ Duplicar', 'ed.l.share': '⇪ Compartir',
+    // ---- modo mod (sólo en desarrollo)
+    'ed.mod.title': 'Niveles principales · Mod', 'ed.mod.text': 'Solo en tu versión de desarrollo (npm run dev). Edita un nivel oficial y guárdalo en el juego.',
+    'ed.mod.edit': '✎ Editar (mod)', 'ed.mod.modded': 'modificado', 'ed.mod.save': '💾 Guardar en el juego', 'ed.mod.saveTitle': 'Escribe este nivel en src/niveles/datos (mod)',
+    'ed.mod.reset': '↺ Original', 'ed.mod.resetTitle': 'Restaurar el nivel original', 'ed.mod.resetText': 'Se borran los cambios guardados de este nivel principal y vuelve la versión de su archivo de nivel.',
+    'ed.mod.saved': 'Guardado en {file}. Recarga la página para jugarlo; después pasa el bot y regenera las demos.', 'ed.mod.restored': 'Nivel original restaurado. Recarga la página para verlo.',
+    'ed.mod.err': 'No se pudo guardar: {msg}',
     'ed.l.delAria': 'Borrar {name}', 'ed.l.delAsk': '¿Borrar "{name}"?', 'ed.l.delYes': 'Sí, borrar', 'ed.l.delNo': 'No',
     'ed.n.new': 'Mi nivel {n}', 'ed.n.untitled': 'Sin nombre', 'ed.n.imported': 'Nivel importado', 'ed.n.copy': '{name} (copia)',
     'ed.t.saveFail': 'No se pudo guardar en este navegador (¿sin espacio?)',

@@ -35,6 +35,48 @@ function juego() {
   };
 }
 
+// Modo mod del editor: guarda (POST) o restaura (DELETE) los datos de un nivel principal en
+// src/niveles/datos/<id>.json. Sólo existe en el servidor de desarrollo (npm run dev), nunca en la versión publicada.
+function modoMod() {
+  const DIR = path.join(SRC, 'niveles', 'datos');
+  return {
+    name: 'neon-dash-mod',
+    apply: 'serve',
+    configureServer(server) {
+      fs.mkdirSync(DIR, { recursive: true });
+      server.watcher.unwatch(DIR); // guardar no recarga la página: el dueño recarga cuando quiera probarlo
+      server.middlewares.use('/__mod/level', (req, res) => {
+        const id = decodeURIComponent((req.url || '').replace(/^\//, '').split('?')[0]);
+        const send = (code, obj) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(obj)); };
+        if (!/^[a-z0-9-]{1,40}$/.test(id) || !fs.existsSync(path.join(SRC, 'niveles', id + '.js'))) return send(400, { error: 'nivel desconocido' });
+        const file = path.join(DIR, id + '.json');
+        const invalidate = () => {
+          for (const f of [file, path.join(SRC, 'niveles-datos.js'), path.join(SRC, 'levels.js')]) {
+            for (const m of server.moduleGraph.getModulesByFile(f) || []) server.moduleGraph.invalidateModule(m);
+          }
+        };
+        if (req.method === 'DELETE') {
+          if (fs.existsSync(file)) fs.unlinkSync(file);
+          invalidate();
+          return send(200, { ok: true, restored: true });
+        }
+        if (req.method !== 'POST') return send(405, { error: 'usa POST o DELETE' });
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > 8e6) req.destroy(); });
+        req.on('end', () => {
+          try {
+            const d = JSON.parse(body);
+            if (!Array.isArray(d.objects) || !Array.isArray(d.colors)) throw new Error('faltan objetos o colores');
+            fs.writeFileSync(file, JSON.stringify(d, null, 1) + String.fromCharCode(10));
+            invalidate();
+            send(200, { ok: true, file: path.relative(path.resolve(__dirname), file) });
+          } catch (e) { send(400, { error: e.message }); }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   root: 'src',
   base: './',
@@ -44,6 +86,7 @@ export default defineConfig({
   preview: { port: 8792, strictPort: true },
   plugins: [
     juego(),
+    modoMod(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',

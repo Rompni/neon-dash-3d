@@ -9,6 +9,7 @@ import './i18n.js'; // idiomas (window.I18N y window.t): primero, para que todo 
 import './sim.js';
 import './tracks.js';
 import.meta.glob('./niveles/*.js', { eager: true }); // registran sus constructores en NIVELES
+import './niveles-datos.js'; // niveles principales editados en modo mod
 import './levels.js';
 import './solver.js';
 import './audio.js';

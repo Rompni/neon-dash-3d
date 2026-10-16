@@ -144,6 +144,67 @@ function boot() {
     return Math.ceil(max + 12);
   }
   function lengthOf(lv) { return lv.length > 0 ? Math.max(lv.length, 10) : autoLength(lv); }
+  // ------------------------------------------------------------ modo mod (sólo en desarrollo: npm run dev)
+  // El dueño puede abrir los niveles principales, editarlos y guardarlos en src/niveles/datos/<id>.json (los
+  // escribe el servidor de desarrollo, ver vite.config.js). En la versión publicada esto no existe.
+  const MOD = !!(import.meta.env && import.meta.env.DEV);
+  function fromOfficial(def) {
+    const c = (v) => JSON.parse(JSON.stringify(v || []));
+    return Object.assign(newLevel(), {
+      id: 'mod-' + def.id, mod: def.id, name: I18N.levelName(def), song: def.song, bpm: def.bpm,
+      startMode: def.startMode || 'cube', startSpeed: def.startSpeed || 1, theme3d: def.theme3d, length: def.length,
+      objects: c(def.objects), decos: c(def.decos), colors: c(def.colors),
+      triggers: c(def.triggers).map((t) => Object.assign(t, { y: 9 })),
+    });
+  }
+  function modPayload(lv) {
+    const d = toDef(lv);
+    return { song: d.song, bpm: d.bpm, startMode: d.startMode, startSpeed: d.startSpeed, theme3d: d.theme3d, length: d.length,
+      objects: d.objects, decos: d.decos, colors: d.colors, triggers: d.triggers };
+  }
+  function renderMod() {
+    const box = $('edMod');
+    if (!MOD) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = `<h2>${T('ed.mod.title')}</h2><p class="ed-note">${T('ed.mod.text')}</p><div class="ed-cards">` +
+      Levels.list.map((def) => `<div class="ed-card mod"><h3>${esc(I18N.levelName(def))}${def.modded ? ` <span class="ed-tag">${T('ed.mod.modded')}</span>` : ''}</h3>
+        <div class="ed-acts"><button class="ed-b go" data-mod="${def.id}">${T('ed.mod.edit')}</button></div></div>`).join('') + '</div>';
+    box.querySelectorAll('[data-mod]').forEach((b) => b.addEventListener('click', () => {
+      ND.click();
+      const def = Levels.list.find((d) => d.id === b.dataset.mod);
+      let lv = levels.find((l) => l.mod === def.id);
+      if (!lv) { lv = fromOfficial(def); levels.unshift(lv); persistLevels(); }
+      openEditor(lv);
+    }));
+  }
+  async function modSave() {
+    const lv = ed.lv;
+    if (!lv || !lv.mod) return;
+    try {
+      const r = await fetch('/__mod/level/' + lv.mod, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(modPayload(lv)) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.status);
+      toast(T('ed.mod.saved', { file: j.file }));
+    } catch (e) { toast(T('ed.mod.err', { msg: e.message })); }
+  }
+  function modReset() {
+    const lv = ed.lv;
+    if (!lv || !lv.mod) return;
+    modal(`<h2>${T('ed.mod.resetTitle')}</h2><p>${T('ed.mod.resetText')}</p>
+      <div class="row"><button class="btn orange" id="mrYes">${T('ed.mod.reset')}</button><button class="btn ghost" id="mrNo">${T('ed.cancel')}</button></div>`, (r) => {
+      r.querySelector('#mrNo').addEventListener('click', closeModal);
+      r.querySelector('#mrYes').addEventListener('click', async () => {
+        try {
+          const res = await fetch('/__mod/level/' + lv.mod, { method: 'DELETE' });
+          if (!res.ok) throw new Error(res.status);
+          levels = levels.filter((l) => l !== lv); persistLevels();
+          closeModal(); ed.lv = null; showList();
+          toast(T('ed.mod.restored'));
+        } catch (e) { toast(T('ed.mod.err', { msg: e.message })); }
+      });
+    });
+  }
+
   function toDef(lv) {
     return {
       id: lv.id, name: lv.name, song: lv.song, bpm: lv.bpm, difficulty: 'Mío', stars: 0, theme: 'original', theme3d: lv.theme3d || 'ciudad',
@@ -903,6 +964,8 @@ function boot() {
         <button class="ed-b" id="edSettings" data-i18n-title="ed.settingsTitle" data-i18n-aria="ed.settingsTitle">⚙<span class="lbl"> <span data-i18n="ed.settings"></span></span></button>
         <button class="ed-b" id="edShare" data-i18n-title="ed.shareTitle" data-i18n-aria="ed.share">⇪<span class="lbl"> <span data-i18n="ed.share"></span></span></button>
         <button class="ed-b danger" id="edClear" data-i18n-title="ed.clearTitle" data-i18n-aria="ed.clearTitle">🗑</button>
+        <button class="ed-b go" id="edModSave" hidden data-i18n-title="ed.mod.saveTitle"><span data-i18n="ed.mod.save"></span></button>
+        <button class="ed-b" id="edModReset" hidden data-i18n-title="ed.mod.resetTitle"><span data-i18n="ed.mod.reset"></span></button>
         <span class="sp"></span>
         <button class="ed-b" id="edVerify" data-i18n-title="ed.verifyTitle" data-i18n-aria="ed.verify">✔<span class="lbl"> <span data-i18n="ed.verify"></span></span></button>
         <button class="ed-b go" id="edPlayHere" data-i18n-title="ed.playHereTitle" data-i18n-aria="ed.playHereAria">⏵<span class="lbl"> <span data-i18n="ed.playHere"></span></span></button>
@@ -935,6 +998,7 @@ function boot() {
       <div class="panel">
         <h2 data-i18n="ed.myLevels"></h2>
         <div class="ed-cards" id="edCards"></div>
+        <div id="edMod" hidden></div>
         <div class="row">
           <button class="btn" id="edNew" data-i18n="ed.newLevel"></button>
           <button class="btn purple" id="edImport" data-i18n="ed.import"></button>
@@ -1441,6 +1505,7 @@ function boot() {
 
   // ------------------------------------------------------------ Mis niveles
   function renderList() {
+    renderMod();
     const list = $('edCards');
     if (!levels.length) {
       list.innerHTML = `<p class="ed-empty">${esc(T('ed.l.empty'))}</p>`;
@@ -1512,6 +1577,7 @@ function boot() {
     $('edList').hidden = true;
     $('edUi').hidden = false;
     $('edName').value = lv.name;
+    $('edModSave').hidden = $('edModReset').hidden = !(MOD && lv.mod);
     if (!ed.place) ed.place = Object.assign({}, ITEM[ed.item].tpl);
     renderPalette();
     setTool(ed.tool);
@@ -1614,6 +1680,8 @@ function boot() {
   $('editorBtn').addEventListener('click', () => { ND.unlockAudio(); ND.click(); open(); });
   $('edBack').addEventListener('click', withClick(showList));
   $('edExit').addEventListener('click', withClick(exitToMenu));
+  $('edModSave').addEventListener('click', withClick(modSave));
+  $('edModReset').addEventListener('click', withClick(modReset));
   $('edNew').addEventListener('click', withClick(() => { const lv = newLevel(); levels.unshift(lv); persistLevels(); openEditor(lv); }));
   $('edImport').addEventListener('click', withClick(() => importModal()));
   $('edName').addEventListener('input', (e) => { ed.lv.name = e.target.value.slice(0, 40) || T('ed.n.untitled'); changed(); });

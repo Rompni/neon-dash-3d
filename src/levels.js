@@ -245,7 +245,22 @@
     def.colors = def.colors.filter((c, i) => i === 0 || c.x < end);
     return def;
   }
-  const list = ORDER.map((id) => recortar((isNode ? require('./niveles/' + id + '.js') : root.NIVELES[id])(H)));
+  // Modo mod (editor, sólo en desarrollo): si el dueño editó un nivel principal, sus datos están en
+  // src/niveles/datos/<id>.json y sustituyen a lo que genera el archivo del nivel (se conservan id, nombre,
+  // tarjeta, dificultad y estrellas).
+  const MOD_KEYS = ['objects', 'decos', 'triggers', 'colors', 'length', 'song', 'bpm', 'startMode', 'startSpeed', 'theme3d'];
+  function modData(id) {
+    if (!isNode) return (root.NIVEL_DATOS || {})[id] || null;
+    try { return require('./niveles/datos/' + id + '.json'); } catch (e) { return null; }
+  }
+  function withMod(def) {
+    const d = modData(def.id);
+    if (!d) return def;
+    for (const k of MOD_KEYS) if (d[k] !== undefined) def[k] = JSON.parse(JSON.stringify(d[k]));
+    def.modded = true;
+    return def;
+  }
+  const list = ORDER.map((id) => recortar(withMod((isNode ? require('./niveles/' + id + '.js') : root.NIVELES[id])(H))));
 
   const api = { Builder, list, H, ORDER };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

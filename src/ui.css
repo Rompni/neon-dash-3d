@@ -420,3 +420,11 @@ kbd { font: inherit; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.2
 .medal.bronze { background-image: url(/ui/medal_bronze.webp); } .medal.locked { background-image: url(/ui/medal_locked.webp); }
 .ach.got .medal { animation: medalShine 4s ease-in-out infinite; }
 @keyframes medalShine { 0%, 85%, 100% { filter: none; } 92% { filter: brightness(1.35) drop-shadow(0 0 6px rgba(255, 210, 58, 0.7)); } }
+
+/* modo mod del editor (sólo en desarrollo) */
+#edMod { margin-top: 18px; }
+#edMod h2 { color: var(--gold); }
+#edMod h2::after { background: linear-gradient(90deg, rgba(255, 210, 58, 0.6), transparent); }
+.ed-note { color: var(--muted); font-size: 12px; margin: -6px 0 10px; letter-spacing: 0.5px; }
+.ed-card.mod { border-left: 2px solid var(--gold); }
+.ed-tag { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink); background: var(--gold); padding: 1px 6px; vertical-align: 2px; }
