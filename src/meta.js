@@ -216,7 +216,7 @@ function renderRewards(tab) {
   } else if (t === 'cofres') {
     html = '<div class="chests">' + Object.entries(CHESTS).map(([k, c]) => {
       const left = chestLeft(k);
-      return `<div class="chest${left ? '' : ' ready'}"><div class="chest-ico">${ico(k === 'big' ? 'gift' : 'chest')}</div><b>${c.name}</b>` +
+      return `<div class="chest${left ? '' : ' ready'}"><i class="chest-sprite ${k === 'big' ? 'big' : 'small'}" data-sprite="${k}"></i><b>${c.name}</b>` +
         `<span>${ico('orb')} ${c.orbs[0]}–${c.orbs[1]} ${c.diaChance < 1 ? 'y a veces' : 'y'} ${ico('diamond')} ${c.dia[0] || 1}–${c.dia[1]}</span>` +
         (left ? `<span class="wait" data-wait="${k}">Abre en ${fmtTime(left)}</span>` : `<button class="btn small" data-chest="${k}">Abrir</button>`) + '</div>';
     }).join('') + '</div>';
@@ -230,7 +230,7 @@ function renderRewards(tab) {
     const n = Object.keys(save.ach).length;
     html = `<p class="rw-note">${n} de ${ACH.length} logros</p><div class="achs">` + ACH.map(([id, name, desc, , r]) => {
       const got = !!save.ach[id];
-      return `<div class="ach${got ? ' got' : ''}"><span class="ico">${ico(got ? 'trophy' : 'lock')}</span><div><b>${name}</b><span>${desc}</span></div><span class="reward">${r.orbs ? ico('orb') + ' ' + r.orbs : ico('diamond') + ' ' + r.diamonds}</span></div>`;
+      return `<div class="ach${got ? ' got' : ''}"><i class="medal ${got ? (r.diamonds ? 'gold' : r.orbs >= 100 ? 'silver' : 'bronze') : 'locked'}"></i><div><b>${name}</b><span>${desc}</span></div><span class="reward">${r.orbs ? ico('orb') + ' ' + r.orbs : ico('diamond') + ' ' + r.diamonds}</span></div>`;
     }).join('') + '</div>';
   }
   $('rwBody').innerHTML = html;
@@ -248,7 +248,13 @@ function renderRewards(tab) {
     save.cos[COS_KEY[it.cat]] = itemValue(it.id);
     persist(); applyCosmetics(); checkAchievements(); renderRewards();
   }));
-  $('rwBody').querySelectorAll('[data-chest]').forEach((b) => b.addEventListener('click', () => { openChest(b.dataset.chest); renderRewards(); }));
+  // el cofre se abre con su animación (12 fotogramas de Blender) y luego se dan los premios
+  $('rwBody').querySelectorAll('[data-chest]').forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.chest, spr = $('rwBody').querySelector(`[data-sprite="${k}"]`);
+    b.disabled = true;
+    if (spr) spr.classList.add('opening');
+    setTimeout(() => { openChest(k); renderRewards(); }, spr ? 820 : 0);
+  }));
   $('rwBody').querySelectorAll('[data-quest]').forEach((b) => b.addEventListener('click', () => {
     const q = save.quests.list[Number(b.dataset.quest)];
     if (q.claimed) return;

@@ -68,7 +68,7 @@ export default defineConfig({
       workbox: {
         // la página, el código, las fuentes y los modelos se guardan al instalar (juega sin conexión);
         // las canciones se guardan la primera vez que suenan
-        globPatterns: ['**/*.{html,js,css,woff2,png,glb}'],
+        globPatterns: ['**/*.{html,js,css,woff2,png,webp,svg,glb}'],
         globIgnores: ['music/**'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [{

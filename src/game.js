@@ -18,7 +18,9 @@ const DESIGNS = {
   robot: styles('robot'), spider: styles('arana'), swing: styles('swing'),
 };
 // Ícono SVG del sprite de index.html (sustituye a los emojis).
-const ico = (n) => `<svg class="i"><use href="#i-${n}"/></svg>`;
+// Las monedas, diamantes, orbes y estrellas son renders 3D de Blender (public/ui, tiras de 24 fotogramas que giran).
+const CUR = new Set(['coin', 'diamond', 'orb', 'star']);
+const ico = (n) => (CUR.has(n) ? `<i class="cur cur-${n}"></i>` : `<svg class="i"><use href="#i-${n}"/></svg>`);
 // Miniatura del garaje: posición en public/icons/garaje.webp (12 estilos × 8 modos, hecha con Blender).
 const THUMB_ROW = { cube: 0, ship: 1, ball: 2, ufo: 3, wave: 4, robot: 5, spider: 6, swing: 7 };
 const thumbPos = (mode, k) => `${(k / 11) * 100}% ${(THUMB_ROW[mode] / 7) * 100}%`;

@@ -457,7 +457,7 @@ def setup_scene(size, fit, elev, cz=0.0):
 
 # ---------------------------------------------------------------- modelos
 def build_coin(root, jd):
-    gold = mat('oro', (1.0, 0.62, 0.10), 0.22, 1.0, coat=0.6)
+    gold = mat('oro', (1.0, 0.66, 0.14), 0.24, 0.8, coat=0.7, emit=0.18, emit_color=(1.0, 0.6, 0.12))
     deep = mat('oro_oscuro', (0.36, 0.10, 0.006), 0.38, 1.0, coat=0.5)
     shine = mat('oro_logo', (1.0, 0.78, 0.25), 0.16, 1.0, coat=0.8, emit=0.55, emit_color=(1.0, 0.7, 0.2),
                 glow=(0.35, 0.22, 0.04))
@@ -527,11 +527,11 @@ def build_diamond(root, jd):
 
 
 def build_orb(root, jd):
-    core = mat('orbe', (0.05, 0.01, 0.26), 0.35, 0.0, coat=1.0, spec=0.3)
-    facing_emission(core, (0.04, 0.008, 0.2), (0.42, 0.16, 1.0), 1.0, blend=0.6,
-                    noise=(2.6, (0.22, 0.06, 0.7)))
-    GLOW[core.name] = tuple(c * 0.55 for c in VIOLET)
-    ringm = neon('anillo', (0.42, 0.24, 1.0), 1.9)
+    core = mat('orbe', (0.05, 0.01, 0.26), 0.35, 0.0, coat=0.6, spec=0.3)
+    facing_emission(core, (0.07, 0.01, 0.36), (0.42, 0.14, 1.0), 1.0, blend=0.22,
+                    noise=(2.6, (0.18, 0.04, 0.6)))
+    GLOW[core.name] = tuple(c * 0.1 for c in VIOLET)
+    ringm = neon('anillo', (0.36, 0.18, 1.0), 1.5)
     bead_m = neon('cuenta_magenta', MAGENTA, 1.8)
     bead_c = neon('cuenta_cian', CYAN, 1.8)
     uvsphere('orbe', 0.70, (0, 0, 0), root, core)

@@ -393,3 +393,29 @@ kbd { font: inherit; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.2
 .screen.enter .title .emblem { animation: emblemIn 0.6s cubic-bezier(0.25, 1.6, 0.45, 1) both, float 3.4s 0.6s ease-in-out infinite; }
 @keyframes emblemIn { from { opacity: 0; transform: translateX(-40px) rotate(-30deg) scale(0.6); } to { opacity: 1; transform: none; } }
 @media (max-height: 520px) { .title .emblem { display: none; } }
+
+/* ── Íconos 3D de Blender (public/ui): monedas, diamantes, orbes, estrellas, cofres y medallas ── */
+.cur { display: inline-block; width: 1.45em; height: 1.45em; vertical-align: -0.38em; flex: none; background-repeat: no-repeat; background-size: 2400% 100%; background-position: 0 0; }
+.cur-coin { background-image: url(/ui/coin.webp); }
+.cur-diamond { background-image: url(/ui/diamond.webp); }
+.cur-orb { background-image: url(/ui/orb.webp); }
+.cur-star { background-image: url(/ui/star.webp); }
+/* giran en la cartera y el contador del garaje, al pasar el ratón por un artículo y al contar */
+.wallet .cur, .coin-count .cur, .shop-item:hover .cur, .counting ~ .cur, .done-reward .cur { animation: curSpin 2.6s steps(23, jump-none) infinite; }
+.wallet span:nth-child(2) .cur { animation-delay: -0.6s; } .wallet span:nth-child(3) .cur { animation-delay: -1.2s; } .wallet span:nth-child(4) .cur { animation-delay: -1.8s; }
+@keyframes curSpin { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+.wallet span { gap: 3px; }
+.coin-count .cur { width: 1.6em; height: 1.6em; }
+.stars .cur { width: 1.25em; height: 1.25em; margin: 0 -2px; }
+.chest-sprite { display: block; width: 104px; height: 104px; background-repeat: no-repeat; background-size: 1200% 100%; background-position: 0 0; }
+.chest-sprite.small { background-image: url(/ui/chest_small.webp); }
+.chest-sprite.big { background-image: url(/ui/chest_big.webp); }
+.chest.ready .chest-sprite { animation: wobble 1.6s ease-in-out infinite; }
+.chest-sprite.opening { animation: chestOpen 0.8s steps(11, jump-none) forwards !important; }
+@keyframes chestOpen { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+@keyframes wobble { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-5deg) scale(1.04); } 84% { transform: rotate(5deg) scale(1.04); } 92% { transform: rotate(-2deg); } }
+.medal { display: block; width: 44px; height: 44px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+.medal.gold { background-image: url(/ui/medal_gold.webp); } .medal.silver { background-image: url(/ui/medal_silver.webp); }
+.medal.bronze { background-image: url(/ui/medal_bronze.webp); } .medal.locked { background-image: url(/ui/medal_locked.webp); }
+.ach.got .medal { animation: medalShine 4s ease-in-out infinite; }
+@keyframes medalShine { 0%, 85%, 100% { filter: none; } 92% { filter: brightness(1.35) drop-shadow(0 0 6px rgba(255, 210, 58, 0.7)); } }
