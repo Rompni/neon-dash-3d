@@ -4,15 +4,17 @@
  */
 const B = Sim.BLOCK, TPS = Sim.TPS, TICK_MS = 1000 / TPS;
 const VIEW_H = 320; // alto de referencia para la cámara, en unidades de la física (≈10.7 bloques)
+// Modos de juego (sólo para saber si un portal es de modo; el nombre visible es T('mode.<modo>'), src/i18n.js).
 const MODE_NAME = { cube: 'cubo', ship: 'nave', ball: 'bola', ufo: 'ovni', wave: 'onda', robot: 'robot', spider: 'araña', swing: 'swing' };
 // Garaje: diseños por modo (nodo del GLB) y su precio en monedas. El primero de cada modo es gratis.
 // 12 estilos (columnas de la hoja de iconos). Cada uno se desbloquea para todos los modos al llegar a un número
 // de monedas recogidas (hay 23 en los niveles) y trae sus propios colores.
-const STYLE_NAMES = ['Clásico', 'Demonio', 'Tecno', 'Sonrisa', 'Pinchos', 'Núcleo', 'Cristal', 'Cuernos', 'Blindado', 'Runa', 'Ojos', 'Equis'];
+// Los nombres de los estilos se traducen al mostrarlos: T('style.<k>') (src/i18n.js).
+const STYLE_COUNT = 12;
 const STYLE_COINS = [0, 1, 2, 3, 5, 7, 9, 11, 13, 16, 19, 22];
 const STYLE_COLORS = [['#ffd23a', '#27e3ff'], ['#ff3b3b', '#ff7a3d'], ['#e8ecf2', '#27e3ff'], ['#9b4dff', '#ff4fd8'], ['#2a2a33', '#7dff3a'], ['#ff8a1c', '#27e3ff'],
   ['#5ab8ff', '#bff3ff'], ['#7a1010', '#ff3b3b'], ['#e8b84a', '#27e3ff'], ['#6a2cff', '#ff4fd8'], ['#2fae4a', '#7dff3a'], ['#ff9a1c', '#ffd23a']];
-const styles = (base) => STYLE_NAMES.map((n, i) => [i ? `${base}_${i + 1}` : base, n, i]);
+const styles = (base) => Array.from({ length: STYLE_COUNT }, (_, i) => [i ? `${base}_${i + 1}` : base, i]);
 const DESIGNS = {
   cube: styles('cubo'), ship: styles('nave'), ball: styles('bola'), ufo: styles('ovni'), wave: styles('onda'),
   robot: styles('robot'), spider: styles('arana'), swing: styles('swing'),
@@ -24,9 +26,11 @@ const ico = (n) => (CUR.has(n) ? `<i class="cur cur-${n}"></i>` : `<svg class="i
 // Miniatura del garaje: posición en public/icons/garaje.webp (12 estilos × 8 modos, hecha con Blender).
 const THUMB_ROW = { cube: 0, ship: 1, ball: 2, ufo: 3, wave: 4, robot: 5, spider: 6, swing: 7 };
 const thumbPos = (mode, k) => `${(k / 11) * 100}% ${(THUMB_ROW[mode] / 7) * 100}%`;
-const MODE_LABEL = { cube: 'Cubo', ship: 'Nave', ball: 'Bola', ufo: 'Ovni', wave: 'Onda', robot: 'Robot', spider: 'Araña', swing: 'Swing' };
 const PALETTES = [['#27e3ff', '#ffd23a'], ['#5dff7a', '#27e3ff'], ['#ff4fa3', '#ffe23b'], ['#ffb13b', '#ff3b3b'], ['#b48cff', '#5dff7a'], ['#ffffff', '#ff4fa3']];
 const $ = (id) => document.getElementById(id);
+// Textos de la interfaz (src/i18n.js): T('clave', { variables }). Nombre de un modo en el idioma actual.
+const T = I18N.t;
+const modeName = (m) => T('mode.' + m);
 
 // ------------------------------------------------------------------ guardado
 const SAVE_KEY = 'neondash3d.v1';
@@ -36,6 +40,8 @@ function loadSave() {
 const save = Object.assign({ music: 0.7, sfx: 0.8, quality: 'alta', resolution: 'nativa', palette: 0, best: {}, coins: {}, designs: {}, unlocked: [], designColors: true, bonusCoins: 0 }, loadSave());
 // regalo de 1000 monedas, una sola vez por partida guardada
 if (!save.gift1000) { save.bonusCoins = (save.bonusCoins || 0) + 1000; save.gift1000 = true; persist(); }
+// idioma: inglés salvo que el jugador elija otro en Ajustes (nunca se toma del navegador)
+I18N.setLang(save.lang || 'en');
 function totalCoins() { return Object.values(save.coins).reduce((n, l) => n + l.length, 0) + (save.bonusCoins || 0); }
 function styleOf(id) { const m = /_(\d+)$/.exec(id); return m ? Number(m[1]) - 1 : 0; }
 function styleUnlocked(k) { return totalCoins() >= STYLE_COINS[k]; }
@@ -225,7 +231,7 @@ function newAttempt() {
 
 function showNewBest(p) {
   const el = $('newBest');
-  el.textContent = '¡Nuevo récord! ' + p + '%';
+  el.textContent = T('hud.newBest', { p });
   el.classList.remove('show');
   void el.offsetWidth;
   el.classList.add('show');
@@ -234,7 +240,7 @@ function showNewBest(p) {
 function showAttempt() {
   const el = $('attempt');
   el.hidden = !save.showAttempts;
-  const txt = game.practice ? 'Práctica' : 'Intento ' + game.attempts;
+  const txt = game.practice ? T('hud.practice') : T('hud.attempt', { n: game.attempts });
   if (window.UIFX) window.UIFX.popText(el, txt); else el.textContent = txt;
   el.style.transition = 'none';
   el.style.opacity = '1';
@@ -473,9 +479,9 @@ function resume() {
 
 // En los niveles del editor, "Niveles" vuelve al editor: los botones lo dicen.
 function labelQuit() {
-  const t = game.custom ? 'Editor' : 'Niveles';
-  $('quitBtn').textContent = t;
-  $('doneLevels').textContent = t;
+  const txt = T(game.custom ? 'nav.editor' : 'nav.levels');
+  $('quitBtn').textContent = txt;
+  $('doneLevelsTxt').textContent = txt;
 }
 
 function showComplete() {
@@ -483,7 +489,7 @@ function showComplete() {
   const s = game.s, L = game.L;
   const got = L.coins.filter((id) => s.used[id]).length;
   const fx = window.UIFX;
-  const doneText = game.practice ? '¡Práctica completada!' : '¡Nivel completado!';
+  const doneText = T(game.practice ? 'done.practice' : 'done.level');
   if (fx) fx.popText($('doneTitle'), doneText, true); else $('doneTitle').textContent = doneText;
   for (const [id, v] of [['doneAttempts', game.attempts], ['doneJumps', s.jumps]]) { $(id).dataset.v = 0; if (fx) fx.countTo($(id), v); else $(id).textContent = v; }
   const secs = Math.round(s.tick / TPS);
@@ -725,13 +731,15 @@ function levelDuration(def) {
 function fmtDur(s) { s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function renderLevelCard() {
   const def = defs[game.sel];
-  if (window.UIFX) window.UIFX.scramble($('lvName'), def.name); else $('lvName').textContent = def.name;
-  $('lvDiff').textContent = def.difficulty || '';
+  const name = I18N.levelName(def);
+  if (window.UIFX) window.UIFX.scramble($('lvName'), name); else $('lvName').textContent = name;
+  $('lvDiff').textContent = I18N.levelDiff(def);
   $('lvTime').innerHTML = ico('clock') + ' ' + fmtDur(levelDuration(def));
   $('lvStars').innerHTML = ico('star').repeat(Math.min(10, def.stars || 0));
   const modes = new Set([def.startMode || 'cube']);
   for (const o of def.objects) if (o.t === 'portal' && MODE_NAME[o.kind]) modes.add(o.kind);
-  $('lvModes').textContent = 'Modos: ' + Array.from(modes).map((m) => MODE_NAME[m]).join(' · ');
+  const list = Array.from(modes).map((m) => T('level.modeItem', { name: modeName(m), lname: modeName(m).toLowerCase() })).join(' · ');
+  $('lvModes').textContent = T('level.modes', { list });
   const b = bestOf(def.id);
   $('lvBest').style.width = b.normal + '%'; $('lvBestTxt').textContent = b.normal + '%';
   $('lvPrac').style.width = b.practice + '%'; $('lvPracTxt').textContent = b.practice + '%';
@@ -762,17 +770,17 @@ function renderGarage() {
   const mode = game.garageMode;
   const coins = totalCoins();
   if (window.UIFX) window.UIFX.countTo($('garageCoins'), coins); else $('garageCoins').textContent = coins;
-  $('garageTabs').innerHTML = Object.keys(DESIGNS).map((m) => `<button class="${m === mode ? 'on' : ''}" data-mode="${m}">${MODE_LABEL[m]}</button>`).join('');
+  $('garageTabs').innerHTML = Object.keys(DESIGNS).map((m) => `<button class="${m === mode ? 'on' : ''}" data-mode="${m}">${modeName(m)}</button>`).join('');
   const cur = save.designs[mode] || DESIGNS[mode][0][0];
   const look = game.garagePreview || cur;
-  $('garageList').innerHTML = designsAvailable(mode).map(([id, name, k]) => {
-    const open = styleUnlocked(k);
-    const label = id === cur ? `${ico('check')} Elegido` : open ? 'Elegir' : `${ico('lock')} ${STYLE_COINS[k]}`;
+  $('garageList').innerHTML = designsAvailable(mode).map(([id, k]) => {
+    const open = styleUnlocked(k), name = T('style.' + k);
+    const label = id === cur ? `${ico('check')} ${T('garage.selected')}` : open ? T('garage.select') : `${ico('lock')} ${STYLE_COINS[k]}`;
     return `<button class="design${id === cur ? ' on' : ''}${id === look && id !== cur ? ' look' : ''}${open ? '' : ' locked'}" data-id="${id}" data-k="${k}">` +
       `<i class="thumb" style="background-position:${thumbPos(mode, k)}"></i><b>${name}</b><span>${label}</span></button>`;
   }).join('');
-  $('garagePalettes').innerHTML = `<div class="seg"><button class="${save.designColors ? 'on' : ''}" data-dc="1">Del diseño</button><button class="${save.designColors ? '' : 'on'}" data-dc="0">Mis colores</button></div>` +
-    (save.designColors ? '' : PALETTES.map(([a, b], k) => `<button class="swatch${k === save.palette ? ' on' : ''}" data-pal="${k}" aria-label="Colores ${k + 1}" style="background:linear-gradient(135deg, ${a} 50%, ${b} 50%)"></button>`).join(''));
+  $('garagePalettes').innerHTML = `<div class="seg"><button class="${save.designColors ? 'on' : ''}" data-dc="1">${T('garage.designColors')}</button><button class="${save.designColors ? '' : 'on'}" data-dc="0">${T('garage.myColors')}</button></div>` +
+    (save.designColors ? '' : PALETTES.map(([a, b], k) => `<button class="swatch${k === save.palette ? ' on' : ''}" data-pal="${k}" aria-label="${T('colors.n', { n: k + 1 })}" style="background:linear-gradient(135deg, ${a} 50%, ${b} 50%)"></button>`).join(''));
   $('garageTabs').querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => { click(); game.garageMode = b.dataset.mode; game.garagePreview = null; applyDesigns(); renderGarage(); }));
   $('garageList').querySelectorAll('[data-id]').forEach((b) => b.addEventListener('click', () => {
     const k = Number(b.dataset.k);
@@ -780,7 +788,7 @@ function renderGarage() {
     if (!styleUnlocked(k)) {
       // bloqueado: se enseña igual, para ver cómo es
       game.garagePreview = b.dataset.id;
-      $('garageMsg').textContent = `Vista previa. Se desbloquea al recoger ${STYLE_COINS[k]} monedas (llevas ${totalCoins()}).`;
+      $('garageMsg').textContent = T('garage.preview', { n: STYLE_COINS[k], have: totalCoins() });
       applyDesigns(); renderGarage();
       return;
     }
@@ -799,19 +807,25 @@ function renderGarage() {
 
 function renderSettings() {
   const html = `
-    <div class="setting"><label for="volMusic{n}">Música</label><input type="range" id="volMusic{n}" min="0" max="1" step="0.05" value="${save.music}"></div>
-    <div class="setting"><label for="volSfx{n}">Efectos</label><input type="range" id="volSfx{n}" min="0" max="1" step="0.05" value="${save.sfx}"></div>
-    ${[['showPct', 'Mostrar porcentaje'], ['showAttempts', 'Mostrar intentos'], ['hitboxes', 'Ver hitboxes (H)'], ['practiceMusic', 'Música en práctica'], ['reduceFlash', 'Reducir destellos']].map(([k, n]) =>
-      `<div class="setting"><span>${n}</span><div class="seg"><button class="${save[k] ? 'on' : ''}" data-opt="${k}" data-v="1">Sí</button><button class="${save[k] ? '' : 'on'}" data-opt="${k}" data-v="0">No</button></div></div>`).join('')}
-    <div class="setting"><span>Resolución</span><div class="seg">${[['nativa', 'Nativa'], ['alta', 'Alta'], ['media', 'Media'], ['baja', 'Baja']].map(([r, n]) => `<button class="${save.resolution === r ? 'on' : ''}" data-res="${r}">${n}</button>`).join('')}</div></div>
-    <div class="setting"><span>Calidad</span><div class="seg" data-quality>${['alta', 'baja'].map((q) => `<button class="${save.quality === q ? 'on' : ''}" data-q="${q}">${q === 'alta' ? 'Alta' : 'Baja'}</button>`).join('')}</div></div>
-    <div class="setting"><span>Colores</span><div class="swatches">${PALETTES.map(([a, b], k) => `<button class="swatch${k === save.palette ? ' on' : ''}" data-pal="${k}" aria-label="Colores ${k + 1}" style="background:linear-gradient(135deg, ${a} 50%, ${b} 50%)"></button>`).join('')}</div></div>
-    <p class="credit">${Tracks.credit}</p>`;
+    <div class="setting"><span>${T('settings.language')}</span><div class="seg">${I18N.LANGS.map(([l, n]) => `<button class="${I18N.lang === l ? 'on' : ''}" data-lang="${l}" lang="${l}">${n}</button>`).join('')}</div></div>
+    <div class="setting"><label for="volMusic{n}">${T('settings.music')}</label><input type="range" id="volMusic{n}" min="0" max="1" step="0.05" value="${save.music}"></div>
+    <div class="setting"><label for="volSfx{n}">${T('settings.sfx')}</label><input type="range" id="volSfx{n}" min="0" max="1" step="0.05" value="${save.sfx}"></div>
+    ${['showPct', 'showAttempts', 'hitboxes', 'practiceMusic', 'reduceFlash'].map((k) =>
+      `<div class="setting"><span>${T('settings.' + k)}</span><div class="seg"><button class="${save[k] ? 'on' : ''}" data-opt="${k}" data-v="1">${T('settings.yes')}</button><button class="${save[k] ? '' : 'on'}" data-opt="${k}" data-v="0">${T('settings.no')}</button></div></div>`).join('')}
+    <div class="setting"><span>${T('settings.resolution')}</span><div class="seg">${['nativa', 'alta', 'media', 'baja'].map((r) => `<button class="${save.resolution === r ? 'on' : ''}" data-res="${r}">${T('settings.res.' + r)}</button>`).join('')}</div></div>
+    <div class="setting"><span>${T('settings.quality')}</span><div class="seg" data-quality>${['alta', 'baja'].map((q) => `<button class="${save.quality === q ? 'on' : ''}" data-q="${q}">${T('settings.q.' + q)}</button>`).join('')}</div></div>
+    <div class="setting"><span>${T('settings.colors')}</span><div class="swatches">${PALETTES.map(([a, b], k) => `<button class="swatch${k === save.palette ? ' on' : ''}" data-pal="${k}" aria-label="${T('colors.n', { n: k + 1 })}" style="background:linear-gradient(135deg, ${a} 50%, ${b} 50%)"></button>`).join('')}</div></div>
+    <p class="credit">${T('settings.credit')}</p>`;
   document.querySelectorAll('[data-settings]').forEach((el, n) => {
     el.innerHTML = html.replace(/\{n\}/g, n);
     el.querySelector(`#volMusic${n}`).addEventListener('input', (e) => { save.music = Number(e.target.value); Sound.setVolumes(save.music, save.sfx); persist(); });
     el.querySelector(`#volSfx${n}`).addEventListener('input', (e) => { save.sfx = Number(e.target.value); Sound.setVolumes(save.music, save.sfx); persist(); });
     el.querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => { save[b.dataset.opt] = b.dataset.v === '1'; persist(); click(); World.setReduceFlash(save.reduceFlash); renderSettings(); }));
+    // idioma: se guarda en la partida y la página se vuelve a dibujar (evento 'langchange', ver abajo)
+    el.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.lang === I18N.lang) return;
+      save.lang = b.dataset.lang; persist(); click(); I18N.setLang(save.lang);
+    }));
     el.querySelectorAll('[data-res]').forEach((b) => b.addEventListener('click', () => { save.resolution = b.dataset.res; World.setResolution(save.resolution); persist(); click(); renderSettings(); }));
     el.querySelectorAll('[data-q]').forEach((b) => b.addEventListener('click', () => { save.quality = b.dataset.q; World.W.resolution = save.resolution;
 World.setQuality(save.quality); persist(); click(); renderSettings(); }));
@@ -853,6 +867,16 @@ function quitToLevels() {
   previewLevel(game.sel);
   showScreen('levels');
 }
+
+// Cambio de idioma: los textos fijos ya los pone I18N.apply(); aquí se redibuja lo que se genera desde el código.
+window.addEventListener('langchange', () => {
+  renderSettings();
+  labelQuit();
+  if (game.screen === 'levels') renderLevelCard();
+  if (game.screen === 'garage') { $('garageMsg').textContent = ''; renderGarage(); }
+  if (game.screen === 'complete') $('doneTitle').textContent = T(game.practice ? 'done.practice' : 'done.level');
+  if (game.s && game.screen !== 'menu') $('attempt').textContent = game.practice ? T('hud.practice') : T('hud.attempt', { n: game.attempts });
+});
 
 // ------------------------------------------------------------------ arranque
 World.initScene($('view'));

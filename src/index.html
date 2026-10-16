@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="Plataformas rítmico en 3D: salta al ritmo de la música.">
+<meta name="description" content="A 3D rhythm platformer: jump to the beat of the music.">
 <title>Neon Dash 3D</title>
 <link rel="icon" type="image/png" href="./icons/favicon.png">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
@@ -49,58 +49,58 @@
 </svg>
 
 <div id="app">
-  <canvas id="view" tabindex="0" aria-label="Juego"></canvas>
+  <canvas id="view" tabindex="0" aria-label="Game" data-i18n-aria="aria.game"></canvas>
   <div id="fade"></div>
 
   <section class="screen" id="menu">
     <div class="corner left"><div class="wallet" data-wallet></div></div>
     <div class="corner right">
-      <button class="icon-btn" id="settingsBtn" aria-label="Ajustes"><svg class="i"><use href="#i-gear"/></svg></button>
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings" data-i18n-aria="aria.settings"><svg class="i"><use href="#i-gear"/></svg></button>
     </div>
     <div class="title">
       <img class="emblem" src="./icons/emblema.svg" alt="" width="120" height="120">
       <h1>Neon Dash<span>3D</span></h1>
-      <p>Salta al ritmo de la música</p>
+      <p data-i18n="menu.tagline">Jump to the beat of the music</p>
       <div class="menu-buttons">
-        <button class="btn big glow" id="playBtn"><svg class="i"><use href="#i-play"/></svg> Jugar</button>
+        <button class="btn big glow" id="playBtn"><svg class="i"><use href="#i-play"/></svg> <span data-i18n="menu.play">Play</span></button>
         <div class="row" style="margin-top:4px">
-          <button class="btn purple" id="garageBtn"><svg class="i"><use href="#i-garage"/></svg> Garaje</button>
-          <button class="btn orange" id="editorBtn"><svg class="i"><use href="#i-edit"/></svg> Crear</button>
-          <button class="btn ghost" id="rewardsBtn"><svg class="i"><use href="#i-gift"/></svg> Premios</button>
+          <button class="btn purple" id="garageBtn"><svg class="i"><use href="#i-garage"/></svg> <span data-i18n="menu.garage">Garage</span></button>
+          <button class="btn orange" id="editorBtn"><svg class="i"><use href="#i-edit"/></svg> <span data-i18n="menu.create">Create</span></button>
+          <button class="btn ghost" id="rewardsBtn"><svg class="i"><use href="#i-gift"/></svg> <span data-i18n="menu.rewards">Rewards</span></button>
         </div>
       </div>
     </div>
-    <div class="hint">Saltar: <kbd>Espacio</kbd> <kbd>↑</kbd> <kbd>W</kbd> o clic / toque · Pausa: <kbd>Esc</kbd> · Reiniciar: <kbd>R</kbd></div>
+    <div class="hint" data-i18n-html="menu.hint">Jump: <kbd>Space</kbd> <kbd>↑</kbd> <kbd>W</kbd> or click / tap · Pause: <kbd>Esc</kbd> · Restart: <kbd>R</kbd></div>
   </section>
 
   <section class="screen" id="levels" hidden>
-    <div class="corner left"><button class="icon-btn" id="levelsBack" aria-label="Volver"><svg class="i"><use href="#i-back"/></svg></button></div>
+    <div class="corner left"><button class="icon-btn" id="levelsBack" aria-label="Back" data-i18n-aria="aria.back"><svg class="i"><use href="#i-back"/></svg></button></div>
     <div class="level-nav">
-      <button class="arrow" id="prevLevel" aria-label="Nivel anterior"><svg class="i"><use href="#i-back"/></svg></button>
+      <button class="arrow" id="prevLevel" aria-label="Previous level" data-i18n-aria="aria.prevLevel"><svg class="i"><use href="#i-back"/></svg></button>
       <div class="panel level-card">
         <div class="name" id="lvName"></div>
-        <div class="badges"><span class="badge" id="lvDiff"></span><span class="badge time" id="lvTime" title="Duración del nivel"></span><span class="stars" id="lvStars"></span></div>
+        <div class="badges"><span class="badge" id="lvDiff"></span><span class="badge time" id="lvTime" title="Level length" data-i18n-title="level.durationTitle"></span><span class="stars" id="lvStars"></span></div>
         <div class="modes" id="lvModes"></div>
         <div class="bars">
-          <div class="bar"><span>Normal</span><div class="track"><div class="fill" id="lvBest"></div></div><span id="lvBestTxt"></span></div>
-          <div class="bar practice"><span>Práctica</span><div class="track"><div class="fill" id="lvPrac"></div></div><span id="lvPracTxt"></span></div>
+          <div class="bar"><span data-i18n="level.normal">Normal</span><div class="track"><div class="fill" id="lvBest"></div></div><span id="lvBestTxt"></span></div>
+          <div class="bar practice"><span data-i18n="level.practice">Practice</span><div class="track"><div class="fill" id="lvPrac"></div></div><span id="lvPracTxt"></span></div>
         </div>
         <div class="coins" id="lvCoins"></div>
-        <div class="song-row"><span><svg class="i"><use href="#i-music"/></svg> <b id="lvSong">Original</b></span><button class="btn ghost small" id="lvSongBtn">Cambiar</button><button class="btn ghost small" id="lvSongReset" hidden>Original</button><input type="file" id="lvSongFile" accept="audio/*" hidden></div>
+        <div class="song-row"><span><svg class="i"><use href="#i-music"/></svg> <b id="lvSong">Original</b></span><button class="btn ghost small" id="lvSongBtn" data-i18n="level.change">Change</button><button class="btn ghost small" id="lvSongReset" hidden data-i18n="level.original">Original</button><input type="file" id="lvSongFile" accept="audio/*" hidden></div>
         <div class="row">
-          <button class="btn glow" id="startLevel"><svg class="i"><use href="#i-play"/></svg> Jugar</button>
-          <button class="btn purple" id="startPractice"><svg class="i"><use href="#i-practice"/></svg> Práctica</button>
+          <button class="btn glow" id="startLevel"><svg class="i"><use href="#i-play"/></svg> <span data-i18n="level.play">Play</span></button>
+          <button class="btn purple" id="startPractice"><svg class="i"><use href="#i-practice"/></svg> <span data-i18n="level.practice">Practice</span></button>
         </div>
         <div class="dots" id="lvDots"></div>
       </div>
-      <button class="arrow" id="nextLevel" aria-label="Nivel siguiente"><svg class="i"><use href="#i-next"/></svg></button>
+      <button class="arrow" id="nextLevel" aria-label="Next level" data-i18n-aria="aria.nextLevel"><svg class="i"><use href="#i-next"/></svg></button>
     </div>
   </section>
 
   <section class="screen" id="hud" hidden>
-    <div class="corner left"><button class="icon-btn" id="pauseBtn" aria-label="Pausa"><svg class="i"><use href="#i-pause"/></svg></button></div>
+    <div class="corner left"><button class="icon-btn" id="pauseBtn" aria-label="Pause" data-i18n-aria="aria.pause"><svg class="i"><use href="#i-pause"/></svg></button></div>
     <div class="top"><div class="track"><div class="fill" id="progress"></div></div><div class="pct" id="pct">0%</div></div>
-    <div id="practiceTag" hidden>Práctica · <kbd>Z</kbd> marca · <kbd>X</kbd> quita</div>
+    <div id="practiceTag" hidden data-i18n-html="hud.practiceTag">Practice · <kbd>Z</kbd> checkpoint · <kbd>X</kbd> remove</div>
     <div id="attempt"></div>
     <div id="newBest"></div>
   </section>
@@ -109,20 +109,20 @@
   <section class="screen" id="editor" hidden></section>
 
   <section class="screen garage-screen" id="garage" hidden>
-    <div class="corner left"><button class="icon-btn" id="garageBack" aria-label="Volver"><svg class="i"><use href="#i-back"/></svg></button></div>
+    <div class="corner left"><button class="icon-btn" id="garageBack" aria-label="Back" data-i18n-aria="aria.back"><svg class="i"><use href="#i-back"/></svg></button></div>
     <div class="panel garage">
-      <div class="garage-head"><h2>Garaje</h2><span class="coin-count"><i class="cur cur-coin"></i> <b id="garageCoins">0</b></span></div>
+      <div class="garage-head"><h2 data-i18n="garage.title">Garage</h2><span class="coin-count"><i class="cur cur-coin"></i> <b id="garageCoins">0</b></span></div>
       <div class="tabs" id="garageTabs"></div>
       <div class="designs" id="garageList"></div>
-      <div class="garage-colors"><span>Colores</span><div class="swatches" id="garagePalettes"></div></div>
+      <div class="garage-colors"><span data-i18n="garage.colors">Colors</span><div class="swatches" id="garagePalettes"></div></div>
       <p class="garage-msg" id="garageMsg"></p>
     </div>
   </section>
 
   <section class="screen dim" id="rewards" hidden>
-    <div class="corner left"><button class="icon-btn" id="rewardsBack" aria-label="Volver"><svg class="i"><use href="#i-back"/></svg></button></div>
+    <div class="corner left"><button class="icon-btn" id="rewardsBack" aria-label="Back" data-i18n-aria="aria.back"><svg class="i"><use href="#i-back"/></svg></button></div>
     <div class="panel rewards">
-      <div class="garage-head"><h2>Premios</h2><div class="wallet" data-wallet></div></div>
+      <div class="garage-head"><h2 data-i18n="rewards.title">Rewards</h2><div class="wallet" data-wallet></div></div>
       <div class="tabs" id="rwTabs"></div>
       <div class="rw-body" id="rwBody"></div>
     </div>
@@ -130,50 +130,54 @@
 
   <section class="screen dim" id="pause" hidden>
     <div class="panel">
-      <h2>Pausa</h2>
+      <h2 data-i18n="pause.title">Paused</h2>
       <div class="settings" data-settings></div>
       <div class="row">
-        <button class="btn" id="resumeBtn"><svg class="i"><use href="#i-play"/></svg> Seguir</button>
-        <button class="btn orange" id="restartBtn"><svg class="i"><use href="#i-retry"/></svg> Reiniciar</button>
-        <button class="btn ghost" id="quitBtn">Niveles</button>
+        <button class="btn" id="resumeBtn"><svg class="i"><use href="#i-play"/></svg> <span data-i18n="pause.resume">Resume</span></button>
+        <button class="btn orange" id="restartBtn"><svg class="i"><use href="#i-retry"/></svg> <span data-i18n="pause.restart">Restart</span></button>
+        <button class="btn ghost" id="quitBtn">Levels</button>
       </div>
     </div>
   </section>
 
   <section class="screen dim" id="settings" hidden>
     <div class="panel">
-      <h2>Ajustes</h2>
+      <h2 data-i18n="settings.title">Settings</h2>
       <div class="settings" data-settings></div>
-      <div class="row"><button class="btn" id="settingsClose">Listo</button></div>
+      <div class="row"><button class="btn" id="settingsClose" data-i18n="settings.done">Done</button></div>
     </div>
   </section>
 
   <section class="screen dim" id="complete" hidden>
     <div class="panel">
-      <h2 id="doneTitle">¡Nivel completado!</h2>
+      <h2 id="doneTitle">Level complete!</h2>
       <div class="stats">
-        <div class="stat"><b id="doneAttempts">1</b><span>Intentos</span></div>
-        <div class="stat"><b id="doneJumps">0</b><span>Saltos</span></div>
-        <div class="stat"><b id="doneTime">0:00</b><span>Tiempo</span></div>
-        <div class="stat"><b id="doneCoins">0/0</b><span>Monedas</span></div>
+        <div class="stat"><b id="doneAttempts">1</b><span data-i18n="done.attempts">Attempts</span></div>
+        <div class="stat"><b id="doneJumps">0</b><span data-i18n="done.jumps">Jumps</span></div>
+        <div class="stat"><b id="doneTime">0:00</b><span data-i18n="done.time">Time</span></div>
+        <div class="stat"><b id="doneCoins">0/0</b><span data-i18n="done.coins">Coins</span></div>
       </div>
       <p class="done-reward" id="doneReward"></p>
       <div class="row">
-        <button class="btn" id="doneNext">Siguiente <svg class="i"><use href="#i-next"/></svg></button>
-        <button class="btn orange" id="doneRetry"><svg class="i"><use href="#i-retry"/></svg> Repetir</button>
-        <button class="btn ghost" id="doneLevels"><svg class="i"><use href="#i-list"/></svg> Niveles</button>
+        <button class="btn" id="doneNext"><span data-i18n="done.next">Next</span> <svg class="i"><use href="#i-next"/></svg></button>
+        <button class="btn orange" id="doneRetry"><svg class="i"><use href="#i-retry"/></svg> <span data-i18n="done.retry">Retry</span></button>
+        <button class="btn ghost" id="doneLevels"><svg class="i"><use href="#i-list"/></svg> <span id="doneLevelsTxt">Levels</span></button>
       </div>
     </div>
   </section>
 
   <div id="toast"></div>
-  <div id="loading">Cargando…</div>
+  <div id="loading">Loading…</div>
 </div>
 <script>
+  // Idioma de la pantalla de carga (antes de que cargue src/i18n.js): inglés salvo que la partida diga español.
+  var ndEs = false;
+  try { ndEs = (JSON.parse(localStorage.getItem('neondash3d.v1')) || {}).lang === 'es'; } catch (e) { /* sin almacenamiento */ }
+  if (ndEs) { document.documentElement.lang = 'es'; document.getElementById('loading').textContent = 'Cargando…'; }
   // Si el juego no arranca (un error al cargar), se avisa en vez de quedarse en negro.
   setTimeout(function () {
     var el = document.getElementById('loading');
-    if (el && el.style.opacity !== '0') { el.className = 'err'; el.textContent = 'No se pudo cargar el juego. Prueba a recargar la página.'; }
+    if (el && el.style.opacity !== '0') { el.className = 'err'; el.textContent = ndEs ? 'No se pudo cargar el juego. Prueba a recargar la página.' : "The game couldn't load. Try reloading the page."; }
   }, 15000);
 </script>
 <script type="module" src="./main.js"></script>

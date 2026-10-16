@@ -994,8 +994,9 @@ function buildCity(L, grp, hk) {
 // shader facetado con niebla: cara iluminada según su orientación y cimas que brillan con el color del nivel.
 const THEME_BY_LEVEL = { 'primer-pulso': 'ciudad', orbita: 'espacio', 'fase-doble': 'cristales', ladera: 'montanas', espejo: 'atardecer', abismo: 'vacio', 'bano-de-sangre': 'volcan', telarana: 'cristales' };
 const THEMES = ['ciudad', 'montanas', 'atardecer', 'cristales', 'espacio', 'vacio', 'volcan', 'bosque', 'desierto', 'glaciar', 'circuito', 'oceano', 'ruinas', 'tormenta'];
-const THEME_NAMES = { ciudad: 'Ciudad', montanas: 'Montañas', atardecer: 'Atardecer', cristales: 'Cristales', espacio: 'Espacio', vacio: 'Vacío', volcan: 'Volcán',
-  bosque: 'Bosque', desierto: 'Desierto', glaciar: 'Glaciar', circuito: 'Circuito', oceano: 'Océano', ruinas: 'Ruinas', tormenta: 'Tormenta' };
+// Nombre de cada paisaje en el idioma actual (src/i18n.js, claves theme.<id>): se lee al mostrarlo.
+const THEME_NAMES = {};
+for (const k of THEMES) Object.defineProperty(THEME_NAMES, k, { enumerable: true, get: () => I18N.t('theme.' + k) });
 const FAR_VS = `varying vec3 vWorld; varying vec3 vLocal;
   void main(){
     vLocal = position;

@@ -376,8 +376,8 @@ kbd { font: inherit; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.2
 #doneTitle.pop-in { animation: none; }
 #doneTitle .ch { display: inline-block; animation: letterIn 0.5s cubic-bezier(0.25, 1.7, 0.45, 1) both, wave 2.4s 0.6s ease-in-out infinite; animation-delay: calc(var(--i) * 0.035s), calc(0.6s + var(--i) * 0.08s); }
 @keyframes letterIn { from { opacity: 0; transform: translateY(-14px) scale(0.6); } to { opacity: 1; transform: none; } }
-@keyframes wave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-#doneTitle { justify-content: center; color: var(--gold); text-shadow: 0 0 14px rgba(255, 210, 58, 0.55); }
+@keyframes wave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+#doneTitle { display: block; text-align: center; letter-spacing: 1.5px; font-size: 24px; color: var(--gold); text-shadow: 0 0 14px rgba(255, 210, 58, 0.55); white-space: nowrap; }
 #doneTitle::after { display: none; }
 .counting { color: var(--cyan); text-shadow: 0 0 10px rgba(39, 227, 255, 0.6); }
 .wallet b { font-weight: 700; transition: color 0.3s; }
@@ -401,9 +401,10 @@ kbd { font: inherit; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.2
 .cur-orb { background-image: url(/ui/orb.webp); }
 .cur-star { background-image: url(/ui/star.webp); }
 /* giran en la cartera y el contador del garaje, al pasar el ratón por un artículo y al contar */
-.wallet .cur, .coin-count .cur, .shop-item:hover .cur, .counting ~ .cur, .done-reward .cur { animation: curSpin 2.6s steps(23, jump-none) infinite; }
+.wallet .cur, .coin-count .cur, .shop-item:hover .cur, .done-reward .cur { animation: curSpin 2.4s steps(1, end) infinite; }
 .wallet span:nth-child(2) .cur { animation-delay: -0.6s; } .wallet span:nth-child(3) .cur { animation-delay: -1.2s; } .wallet span:nth-child(4) .cur { animation-delay: -1.8s; }
-@keyframes curSpin { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+/* vaivén sobre sí mismos (de -45° a 45°): girando entero se ponían de canto y parecían rayitas */
+@keyframes curSpin { 0.0% { background-position: 0.0% 0; } 7.14% { background-position: 4.3478% 0; } 14.29% { background-position: 8.6957% 0; } 21.43% { background-position: 13.0435% 0; } 28.57% { background-position: 13.0435% 0; } 35.71% { background-position: 8.6957% 0; } 42.86% { background-position: 4.3478% 0; } 50.0% { background-position: 0.0% 0; } 57.14% { background-position: 100.0% 0; } 64.29% { background-position: 95.6522% 0; } 71.43% { background-position: 91.3043% 0; } 78.57% { background-position: 91.3043% 0; } 85.71% { background-position: 95.6522% 0; } 92.86% { background-position: 100.0% 0; } 100% { background-position: 0% 0; } }
 .wallet span { gap: 3px; }
 .coin-count .cur { width: 1.6em; height: 1.6em; }
 .stars .cur { width: 1.25em; height: 1.25em; margin: 0 -2px; }

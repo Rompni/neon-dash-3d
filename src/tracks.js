@@ -41,7 +41,7 @@
   };
   // Segundo en que empieza el compás n (n = 0 es bar0) y el tiempo `beat` dentro de él.
   function barTime(id, n, beat) { const t = TRACKS[id]; return t.bar0 + (n * 4 + (beat || 0)) * 60 / t.bpm; }
-  const api = { TRACKS, barTime, credit: 'Música: generada con Flow Music (IA)' };
+  const api = { TRACKS, barTime, credit: 'Music: generated with Flow Music (AI)' };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Tracks = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

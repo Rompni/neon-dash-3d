@@ -51,8 +51,8 @@ export default defineConfig({
       manifest: {
         name: 'Neon Dash 3D',
         short_name: 'Neon Dash',
-        description: 'Plataformas rítmico en 3D: salta al ritmo de la música.',
-        lang: 'es',
+        description: 'A 3D rhythm platformer: jump to the beat of the music.',
+        lang: 'en',
         start_url: './',
         scope: './',
         display: 'fullscreen',

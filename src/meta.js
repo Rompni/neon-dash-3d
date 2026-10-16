@@ -17,35 +17,36 @@ for (const [k, v] of Object.entries(META_DEFAULTS)) if (save[k] == null) save[k]
 for (const [k, v] of Object.entries(META_DEFAULTS.stats)) if (save.stats[k] == null) save.stats[k] = v;
 
 // ------------------------------------------------------------------ tienda
-// Precio en orbes (●) o en diamantes (◆, con `dia`).
+// Precio en orbes (●) o en diamantes (◆, con `dia`). El nombre se traduce con shop.<id> (src/i18n.js).
 const SHOP = [
-  { id: 'trail:clasica', cat: 'Estela', name: 'Clásica', price: 0 },
-  { id: 'trail:ninguna', cat: 'Estela', name: 'Ninguna', price: 0 },
-  { id: 'trail:pixeles', cat: 'Estela', name: 'Píxeles', price: 250 },
-  { id: 'trail:chispas', cat: 'Estela', name: 'Chispas', price: 300 },
-  { id: 'trail:arcoiris', cat: 'Estela', name: 'Arcoíris', price: 450 },
-  { id: 'trail:fuego', cat: 'Estela', name: 'Fuego', price: 40, dia: true },
-  { id: 'death:cubitos', cat: 'Muerte', name: 'Cubitos', price: 0 },
-  { id: 'death:explosion', cat: 'Muerte', name: 'Explosión', price: 300 },
-  { id: 'death:pixeles', cat: 'Muerte', name: 'Píxeles', price: 350 },
-  { id: 'death:anillo', cat: 'Muerte', name: 'Anillos', price: 400 },
-  { id: 'death:chispas', cat: 'Muerte', name: 'Fuegos', price: 35, dia: true },
-  { id: 'flame:naranja', cat: 'Llama', name: 'Naranja', price: 0 },
-  { id: 'flame:azul', cat: 'Llama', name: 'Azul', price: 200 },
-  { id: 'flame:verde', cat: 'Llama', name: 'Verde', price: 200 },
-  { id: 'flame:rosa', cat: 'Llama', name: 'Rosa', price: 200 },
-  { id: 'flame:pixeles', cat: 'Llama', name: 'Píxeles', price: 350 },
-  { id: 'flame:arcoiris', cat: 'Llama', name: 'Arcoíris', price: 50, dia: true },
-  { id: 'glow:none', cat: 'Brillo', name: 'Sin brillo', price: 0 },
-  { id: 'glow:#27e3ff', cat: 'Brillo', name: 'Cian', price: 300 },
-  { id: 'glow:#ff4fd8', cat: 'Brillo', name: 'Rosa', price: 300 },
-  { id: 'glow:#5dff7a', cat: 'Brillo', name: 'Verde', price: 300 },
-  { id: 'glow:#ffd23a', cat: 'Brillo', name: 'Oro', price: 300 },
-  { id: 'glow:#ffffff', cat: 'Brillo', name: 'Blanco', price: 30, dia: true },
+  { id: 'trail:clasica', cat: 'Estela', price: 0 },
+  { id: 'trail:ninguna', cat: 'Estela', price: 0 },
+  { id: 'trail:pixeles', cat: 'Estela', price: 250 },
+  { id: 'trail:chispas', cat: 'Estela', price: 300 },
+  { id: 'trail:arcoiris', cat: 'Estela', price: 450 },
+  { id: 'trail:fuego', cat: 'Estela', price: 40, dia: true },
+  { id: 'death:cubitos', cat: 'Muerte', price: 0 },
+  { id: 'death:explosion', cat: 'Muerte', price: 300 },
+  { id: 'death:pixeles', cat: 'Muerte', price: 350 },
+  { id: 'death:anillo', cat: 'Muerte', price: 400 },
+  { id: 'death:chispas', cat: 'Muerte', price: 35, dia: true },
+  { id: 'flame:naranja', cat: 'Llama', price: 0 },
+  { id: 'flame:azul', cat: 'Llama', price: 200 },
+  { id: 'flame:verde', cat: 'Llama', price: 200 },
+  { id: 'flame:rosa', cat: 'Llama', price: 200 },
+  { id: 'flame:pixeles', cat: 'Llama', price: 350 },
+  { id: 'flame:arcoiris', cat: 'Llama', price: 50, dia: true },
+  { id: 'glow:none', cat: 'Brillo', price: 0 },
+  { id: 'glow:#27e3ff', cat: 'Brillo', price: 300 },
+  { id: 'glow:#ff4fd8', cat: 'Brillo', price: 300 },
+  { id: 'glow:#5dff7a', cat: 'Brillo', price: 300 },
+  { id: 'glow:#ffd23a', cat: 'Brillo', price: 300 },
+  { id: 'glow:#ffffff', cat: 'Brillo', price: 30, dia: true },
 ];
 const COS_KEY = { Estela: 'trail', Muerte: 'death', Llama: 'flame', Brillo: 'glow' };
 function itemValue(id) { const v = id.split(':')[1]; return v === 'none' ? null : v; }
 function isEquipped(it) { const k = COS_KEY[it.cat]; return (save.cos[k] || null) === itemValue(it.id) || (k === 'glow' && !save.cos.glow && it.id === 'glow:none'); }
+const itemName = (it) => T('shop.' + it.id);
 function applyCosmetics() { World.setCosmetics(save.cos); World.setReduceFlash(save.reduceFlash); }
 
 // ------------------------------------------------------------------ logros
@@ -54,39 +55,40 @@ const secretCoins = () => Object.values(save.coins).reduce((n, l) => n + l.lengt
 const allSecret = () => defs.reduce((n, d) => n + d.objects.filter((o) => o.t === 'coin').length, 0);
 function starsTotal() { return defs.reduce((n, d) => n + (save.completed[d.id] ? d.stars || 0 : 0), 0); }
 function customLevelsMade() { try { const l = JSON.parse(localStorage.getItem('neondash3d.levels.v1')); return Array.isArray(l) ? l.length : (l && l.levels ? l.levels.length : 0); } catch (e) { return 0; } }
+// [id, condición, premio]; nombre y descripción: ach.<id> y ach.<id>.desc (src/i18n.js)
 const ACH = [
-  ['salto1', 'Primer salto', 'Salta por primera vez.', () => save.stats.jumps >= 1, { orbs: 20 }],
-  ['saltos500', 'Saltarín', 'Salta 500 veces.', () => save.stats.jumps >= 500, { orbs: 100 }],
-  ['saltos5000', 'Muelle humano', 'Salta 5000 veces.', () => save.stats.jumps >= 5000, { diamonds: 10 }],
-  ['intentos100', 'Persistente', 'Haz 100 intentos.', () => save.stats.attempts >= 100, { orbs: 100 }],
-  ['intentos1000', 'Incansable', 'Haz 1000 intentos.', () => save.stats.attempts >= 1000, { diamonds: 15 }],
-  ['muertes500', 'Inmortal… casi', 'Muere 500 veces.', () => save.stats.deaths >= 500, { orbs: 150 }],
-  ['nivel1', 'Primera victoria', 'Completa un nivel principal.', () => mainCompleted() >= 1, { orbs: 100 }],
-  ['niveles5', 'En racha', 'Completa 5 niveles principales.', () => mainCompleted() >= 5, { diamonds: 10 }],
-  ['todos', 'Completista', 'Completa todos los niveles principales.', () => mainCompleted() >= defs.length, { diamonds: 30 }],
-  ['demonio', 'Cazademonios', 'Completa un nivel Demonio.', () => defs.some((d) => save.completed[d.id] && /demonio/i.test(d.difficulty || '')), { diamonds: 20 }],
-  ['estrellas20', 'Estrellado', 'Consigue 20 estrellas.', () => starsTotal() >= 20, { orbs: 150 }],
-  ['monedas10', 'Coleccionista', 'Recoge 10 monedas secretas.', () => secretCoins() >= 10, { orbs: 200 }],
-  ['monedasTodas', 'Tesoro completo', 'Recoge todas las monedas secretas.', () => secretCoins() >= allSecret(), { diamonds: 25 }],
-  ['practica', 'Ensayo general', 'Completa un nivel en práctica.', () => save.stats.practiceWins >= 1, { orbs: 50 }],
-  ['cofres10', 'Buscatesoros', 'Abre 10 cofres.', () => save.stats.chests >= 10, { diamonds: 10 }],
-  ['compra', 'Primera compra', 'Compra algo en la tienda.', () => save.stats.bought >= 1, { orbs: 50 }],
-  ['creador', 'Creador', 'Guarda un nivel en el editor.', () => customLevelsMade() >= 1, { orbs: 100 }],
-  ['comunidad', 'De la comunidad', 'Completa un nivel del editor.', () => save.stats.customWins >= 1, { orbs: 100 }],
+  ['salto1', () => save.stats.jumps >= 1, { orbs: 20 }],
+  ['saltos500', () => save.stats.jumps >= 500, { orbs: 100 }],
+  ['saltos5000', () => save.stats.jumps >= 5000, { diamonds: 10 }],
+  ['intentos100', () => save.stats.attempts >= 100, { orbs: 100 }],
+  ['intentos1000', () => save.stats.attempts >= 1000, { diamonds: 15 }],
+  ['muertes500', () => save.stats.deaths >= 500, { orbs: 150 }],
+  ['nivel1', () => mainCompleted() >= 1, { orbs: 100 }],
+  ['niveles5', () => mainCompleted() >= 5, { diamonds: 10 }],
+  ['todos', () => mainCompleted() >= defs.length, { diamonds: 30 }],
+  ['demonio', () => defs.some((d) => save.completed[d.id] && /demonio/i.test(d.difficulty || '')), { diamonds: 20 }],
+  ['estrellas20', () => starsTotal() >= 20, { orbs: 150 }],
+  ['monedas10', () => secretCoins() >= 10, { orbs: 200 }],
+  ['monedasTodas', () => secretCoins() >= allSecret(), { diamonds: 25 }],
+  ['practica', () => save.stats.practiceWins >= 1, { orbs: 50 }],
+  ['cofres10', () => save.stats.chests >= 10, { diamonds: 10 }],
+  ['compra', () => save.stats.bought >= 1, { orbs: 50 }],
+  ['creador', () => customLevelsMade() >= 1, { orbs: 100 }],
+  ['comunidad', () => save.stats.customWins >= 1, { orbs: 100 }],
 ];
 function giveReward(r, why) {
   const parts = [];
-  if (r.orbs) { save.orbs += r.orbs; save.stats.orbsEarned += r.orbs; parts.push(`+${r.orbs} orbes`); }
-  if (r.diamonds) { save.diamonds += r.diamonds; parts.push(`+${r.diamonds} diamantes`); }
+  if (r.orbs) { save.orbs += r.orbs; save.stats.orbsEarned += r.orbs; parts.push(T('rw.orbs', { n: r.orbs })); }
+  if (r.diamonds) { save.diamonds += r.diamonds; parts.push(T('rw.diamonds', { n: r.diamonds })); }
   if (why) toast(`${why}  ${parts.join('  ')}`);
   return parts.join('  ');
 }
 function checkAchievements() {
   let any = false;
-  for (const [id, name, , test, reward] of ACH) {
+  for (const [id, test, reward] of ACH) {
     if (save.ach[id] || !test()) continue;
     save.ach[id] = Date.now();
-    giveReward(reward, `Logro: ${name}`);
+    giveReward(reward, T('rw.achievement', { name: T('ach.' + id) }));
     any = true;
   }
   if (any) persist();
@@ -94,11 +96,11 @@ function checkAchievements() {
 
 // ------------------------------------------------------------------ misiones diarias
 const QUEST_TYPES = [
-  { type: 'jumps', text: (n) => `Salta ${n} veces`, goals: [100, 200, 400], reward: [8, 12, 18] },
-  { type: 'attempts', text: (n) => `Haz ${n} intentos`, goals: [20, 40, 60], reward: [8, 12, 16] },
-  { type: 'orbsEarned', text: (n) => `Gana ${n} orbes`, goals: [100, 200, 300], reward: [10, 14, 20] },
-  { type: 'reach', text: (n) => `Llega al ${n} % en un nivel (modo normal)`, goals: [30, 50, 70], reward: [10, 14, 20] },
-  { type: 'wins', text: (n) => n > 1 ? `Completa ${n} niveles` : 'Completa un nivel', goals: [1, 2], reward: [15, 25] },
+  { type: 'jumps', text: (n) => T('quest.jumps', { n }), goals: [100, 200, 400], reward: [8, 12, 18] },
+  { type: 'attempts', text: (n) => T('quest.attempts', { n }), goals: [20, 40, 60], reward: [8, 12, 16] },
+  { type: 'orbsEarned', text: (n) => T('quest.orbsEarned', { n }), goals: [100, 200, 300], reward: [10, 14, 20] },
+  { type: 'reach', text: (n) => T('quest.reach', { n }), goals: [30, 50, 70], reward: [10, 14, 20] },
+  { type: 'wins', text: (n) => n > 1 ? T('quest.wins', { n }) : T('quest.win1'), goals: [1, 2], reward: [15, 25] },
 ];
 function today() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
 function refreshQuests() {
@@ -115,9 +117,10 @@ function refreshQuests() {
 function questProgress(q) { return q.type === 'reach' ? q.best : (save.stats[q.type] || 0) - q.base; }
 
 // ------------------------------------------------------------------ cofres
+// nombre: chest.<clave> (src/i18n.js)
 const CHESTS = {
-  small: { name: 'Cofre pequeño', wait: 4 * 3600e3, orbs: [50, 150], dia: [0, 4], diaChance: 0.35 },
-  big: { name: 'Cofre grande', wait: 24 * 3600e3, orbs: [200, 500], dia: [5, 15], diaChance: 1 },
+  small: { wait: 4 * 3600e3, orbs: [50, 150], dia: [0, 4], diaChance: 0.35 },
+  big: { wait: 24 * 3600e3, orbs: [200, 500], dia: [5, 15], diaChance: 1 },
 };
 function chestLeft(k) { return Math.max(0, save.chests[k] + CHESTS[k].wait - Date.now()); }
 function openChest(k) {
@@ -127,11 +130,11 @@ function openChest(k) {
   if (Math.random() < c.diaChance) r.diamonds = Math.round(c.dia[0] + Math.random() * (c.dia[1] - c.dia[0])) || 1;
   save.chests[k] = Date.now();
   save.stats.chests++;
-  giveReward(r, `🎁 ${c.name}`);
+  giveReward(r, `🎁 ${T('chest.' + k)}`);
   Sound.sfx('coin');
   persist(); checkAchievements();
 }
-function fmtTime(ms) { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} h ${m} min` : m ? `${m} min ${s % 60} s` : `${s % 60} s`; }
+function fmtTime(ms) { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? T('time.h', { h, m }) : m ? T('time.m', { m, s: s % 60 }) : T('time.s', { s: s % 60 }); }
 
 // ------------------------------------------------------------------ eventos de la partida
 // Orbes por nivel: estrellas × 30, repartidos según el mejor % en modo normal .
@@ -159,7 +162,7 @@ const Meta = {
     if (game.custom) {
       save.stats.customWins++;
       const got = L.coins.filter((id) => s.used[id]).length;
-      if (got) { save.userCoins += got; out.push(`+${got} monedas de usuario`); }
+      if (got) { save.userCoins += got; out.push(T('rw.userCoins', { n: got })); }
     } else if (game.practice) {
       save.stats.practiceWins++;
     } else {
@@ -190,10 +193,11 @@ function toast(msg) {
 function renderWallet() {
   if (!save.stats || !save.completed) return; // aún sin inicializar (arranque de game.js)
   const vals = [starsTotal(), save.diamonds, save.orbs, totalCoins()];
-  const ICONS = [['star', 'Estrellas'], ['diamond', 'Diamantes'], ['orb', 'Orbes'], ['coin', 'Monedas']];
+  const ICONS = [['star', 'stars'], ['diamond', 'diamonds'], ['orb', 'orbs'], ['coin', 'coins']];
   document.querySelectorAll('[data-wallet]').forEach((el) => {
-    // la estructura se crea una vez; luego los números suben animados (UIFX.countTo)
-    if (!el.querySelector('b')) el.innerHTML = ICONS.map(([k, n]) => `<span title="${n}" data-cur="${k}">${ico(k)} <b>0</b></span>`).join('');
+    // la estructura se crea una vez; luego los números suben animados (UIFX.countTo); los títulos, en cada llamada (idioma)
+    if (!el.querySelector('b')) el.innerHTML = ICONS.map(([k]) => `<span data-cur="${k}">${ico(k)} <b>0</b></span>`).join('');
+    el.querySelectorAll('[data-cur]').forEach((sp, i) => { sp.title = T('wallet.' + ICONS[i][1]); });
     el.querySelectorAll('b').forEach((b, i) => { if (window.UIFX) window.UIFX.countTo(b, vals[i]); else b.textContent = vals[i]; });
   });
 }
@@ -201,36 +205,36 @@ function renderRewards(tab) {
   game.rewardsTab = tab || game.rewardsTab || 'tienda';
   refreshQuests();
   const t = game.rewardsTab;
-  $('rwTabs').innerHTML = [['tienda', 'Tienda'], ['cofres', 'Cofres'], ['misiones', 'Misiones'], ['logros', 'Logros']]
-    .map(([k, n]) => `<button class="${k === t ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('');
+  $('rwTabs').innerHTML = ['tienda', 'cofres', 'misiones', 'logros']
+    .map((k) => `<button class="${k === t ? 'on' : ''}" data-tab="${k}">${T('tab.' + k)}</button>`).join('');
   let html = '';
   if (t === 'tienda') {
     const CAT_ICO = { Estela: 'trail', Muerte: 'burst', Llama: 'flame', Brillo: 'glow' };
     for (const cat of ['Estela', 'Muerte', 'Llama', 'Brillo']) {
-      html += `<h3>${ico(CAT_ICO[cat])} ${cat}</h3><div class="shop-grid">` + SHOP.filter((it) => it.cat === cat).map((it) => {
+      html += `<h3>${ico(CAT_ICO[cat])} ${T('cat.' + COS_KEY[cat])}</h3><div class="shop-grid">` + SHOP.filter((it) => it.cat === cat).map((it) => {
         const owned = save.owned.includes(it.id), eq = owned && isEquipped(it);
-        const label = eq ? `${ico('check')} Equipado` : owned ? 'Equipar' : `${ico(it.dia ? 'diamond' : 'orb')} ${it.price}`;
-        return `<button class="shop-item${eq ? ' on' : ''}${owned ? '' : ' buy'}" data-item="${it.id}"><canvas class="pv" width="96" height="48" data-pv="${it.id}"></canvas><b>${it.name}</b><span>${label}</span></button>`;
+        const label = eq ? `${ico('check')} ${T('shop.equipped')}` : owned ? T('shop.equip') : `${ico(it.dia ? 'diamond' : 'orb')} ${it.price}`;
+        return `<button class="shop-item${eq ? ' on' : ''}${owned ? '' : ' buy'}" data-item="${it.id}"><canvas class="pv" width="96" height="48" data-pv="${it.id}"></canvas><b>${itemName(it)}</b><span>${label}</span></button>`;
       }).join('') + '</div>';
     }
   } else if (t === 'cofres') {
     html = '<div class="chests">' + Object.entries(CHESTS).map(([k, c]) => {
       const left = chestLeft(k);
-      return `<div class="chest${left ? '' : ' ready'}"><i class="chest-sprite ${k === 'big' ? 'big' : 'small'}" data-sprite="${k}"></i><b>${c.name}</b>` +
-        `<span>${ico('orb')} ${c.orbs[0]}–${c.orbs[1]} ${c.diaChance < 1 ? 'y a veces' : 'y'} ${ico('diamond')} ${c.dia[0] || 1}–${c.dia[1]}</span>` +
-        (left ? `<span class="wait" data-wait="${k}">Abre en ${fmtTime(left)}</span>` : `<button class="btn small" data-chest="${k}">Abrir</button>`) + '</div>';
+      return `<div class="chest${left ? '' : ' ready'}"><i class="chest-sprite ${k === 'big' ? 'big' : 'small'}" data-sprite="${k}"></i><b>${T('chest.' + k)}</b>` +
+        `<span>${ico('orb')} ${c.orbs[0]}–${c.orbs[1]} ${T(c.diaChance < 1 ? 'chest.andSometimes' : 'chest.and')} ${ico('diamond')} ${c.dia[0] || 1}–${c.dia[1]}</span>` +
+        (left ? `<span class="wait" data-wait="${k}">${T('chest.opensIn', { time: fmtTime(left) })}</span>` : `<button class="btn small" data-chest="${k}">${T('chest.open')}</button>`) + '</div>';
     }).join('') + '</div>';
   } else if (t === 'misiones') {
-    html = '<p class="rw-note">Se renuevan cada día.</p>' + save.quests.list.map((q, i) => {
+    html = `<p class="rw-note">${T('quests.note')}</p>` + save.quests.list.map((q, i) => {
       const qt = QUEST_TYPES.find((x) => x.type === q.type), prog = Math.min(q.goal, questProgress(q)), done = prog >= q.goal;
       return `<div class="quest${done ? ' done' : ''}"><div><b>${qt.text(q.goal)}</b><div class="track"><div class="fill" style="width:${prog / q.goal * 100}%"></div></div><span>${prog} / ${q.goal}</span></div>` +
-        (q.claimed ? `<span class="claimed">${ico('check')} Hecha</span>` : done ? `<button class="btn small" data-quest="${i}">+${q.reward} ${ico('diamond')}</button>` : `<span class="reward">${ico('diamond')} ${q.reward}</span>`) + '</div>';
+        (q.claimed ? `<span class="claimed">${ico('check')} ${T('quest.done')}</span>` : done ? `<button class="btn small" data-quest="${i}">+${q.reward} ${ico('diamond')}</button>` : `<span class="reward">${ico('diamond')} ${q.reward}</span>`) + '</div>';
     }).join('');
   } else {
     const n = Object.keys(save.ach).length;
-    html = `<p class="rw-note">${n} de ${ACH.length} logros</p><div class="achs">` + ACH.map(([id, name, desc, , r]) => {
+    html = `<p class="rw-note">${T('ach.count', { n, total: ACH.length })}</p><div class="achs">` + ACH.map(([id, , r]) => {
       const got = !!save.ach[id];
-      return `<div class="ach${got ? ' got' : ''}"><i class="medal ${got ? (r.diamonds ? 'gold' : r.orbs >= 100 ? 'silver' : 'bronze') : 'locked'}"></i><div><b>${name}</b><span>${desc}</span></div><span class="reward">${r.orbs ? ico('orb') + ' ' + r.orbs : ico('diamond') + ' ' + r.diamonds}</span></div>`;
+      return `<div class="ach${got ? ' got' : ''}"><i class="medal ${got ? (r.diamonds ? 'gold' : r.orbs >= 100 ? 'silver' : 'bronze') : 'locked'}"></i><div><b>${T('ach.' + id)}</b><span>${T('ach.' + id + '.desc')}</span></div><span class="reward">${r.orbs ? ico('orb') + ' ' + r.orbs : ico('diamond') + ' ' + r.diamonds}</span></div>`;
     }).join('') + '</div>';
   }
   $('rwBody').innerHTML = html;
@@ -240,10 +244,10 @@ function renderRewards(tab) {
     const it = SHOP.find((x) => x.id === b.dataset.item);
     if (!save.owned.includes(it.id)) {
       const have = it.dia ? save.diamonds : save.orbs;
-      if (have < it.price) { toast(`Te faltan ${it.price - have} ${it.dia ? 'diamantes' : 'orbes'}`); return; }
+      if (have < it.price) { toast(T('shop.need', { n: it.price - have, cur: T(it.dia ? 'cur.diamonds' : 'cur.orbs') })); return; }
       if (it.dia) save.diamonds -= it.price; else save.orbs -= it.price;
       save.owned.push(it.id); save.stats.bought++;
-      Sound.sfx('coin'); toast(`Comprado: ${it.name}`);
+      Sound.sfx('coin'); toast(T('shop.bought', { name: itemName(it) }));
     } else click();
     save.cos[COS_KEY[it.cat]] = itemValue(it.id);
     persist(); applyCosmetics(); checkAchievements(); renderRewards();
@@ -259,7 +263,7 @@ function renderRewards(tab) {
     const q = save.quests.list[Number(b.dataset.quest)];
     if (q.claimed) return;
     q.claimed = true;
-    giveReward({ diamonds: q.reward }, 'Misión completada');
+    giveReward({ diamonds: q.reward }, T('quest.complete'));
     Sound.sfx('coin'); persist(); renderRewards();
   }));
 }
@@ -267,7 +271,7 @@ function renderRewards(tab) {
 setInterval(() => {
   if (game.screen !== 'rewards' || game.rewardsTab !== 'cofres') return;
   let ready = false;
-  document.querySelectorAll('[data-wait]').forEach((el) => { const left = chestLeft(el.dataset.wait); if (!left) ready = true; else el.textContent = `Abre en ${fmtTime(left)}`; });
+  document.querySelectorAll('[data-wait]').forEach((el) => { const left = chestLeft(el.dataset.wait); if (!left) ready = true; else el.textContent = T('chest.opensIn', { time: fmtTime(left) }); });
   if (ready) renderRewards();
 }, 1000);
 
@@ -285,7 +289,7 @@ async function prepareSong(def) {
 function renderSongRow() {
   const def = defs[game.sel], s = songFor(def);
   const tr = def.song && def.song.startsWith('track:') && window.Tracks ? Tracks.TRACKS[def.song.slice(6)] : null;
-  $('lvSong').textContent = s ? s.name : tr ? tr.name : 'Original';
+  $('lvSong').textContent = s ? s.name : tr ? I18N.trackName(def.song.slice(6), tr.name) : T('level.original');
   $('lvSongReset').hidden = !s;
 }
 $('lvSongBtn').addEventListener('click', () => { click(); $('lvSongFile').click(); });
@@ -297,14 +301,16 @@ $('lvSongFile').addEventListener('change', async (e) => {
   try {
     const r = await Sound.importSong(file);
     save.songs[defs[game.sel].id] = { key: r.key, name: r.name || file.name };
-    persist(); renderSongRow(); toast('Música cambiada: ' + (r.name || file.name));
-  } catch (err) { toast('No se pudo cargar ese archivo de audio'); }
+    persist(); renderSongRow(); toast(T('song.changed', { name: r.name || file.name }));
+  } catch (err) { toast(T('song.loadError')); }
 });
 $('lvSongReset').addEventListener('click', () => { click(); delete save.songs[defs[game.sel].id]; persist(); renderSongRow(); });
 
 // ------------------------------------------------------------------ arranque
 $('rewardsBtn').addEventListener('click', () => { unlockAudio(); click(); renderRewards('tienda'); showScreen('rewards'); });
 $('rewardsBack').addEventListener('click', () => { click(); renderWallet(); showScreen('menu'); });
+// cambio de idioma: títulos del monedero y, si está abierta, la pantalla de premios
+window.addEventListener('langchange', () => { renderWallet(); if (game.screen === 'rewards') renderRewards(); });
 refreshQuests();
 applyCosmetics();
 renderWallet();

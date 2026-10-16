@@ -12,80 +12,97 @@ import SOLVER_SRC from './solver.js?raw';
 const STORE = 'neondash3d.levels.v1';
 const DEG = Math.PI / 180;
 const MODES = ['cube', 'ship', 'ball', 'ufo', 'wave', 'robot', 'spider', 'swing'];
-const MODE_NAME = { cube: 'Cubo', ship: 'Nave', ball: 'Bola', ufo: 'Ovni', wave: 'Onda', robot: 'Robot', spider: 'Araña', swing: 'Swing' };
+// Textos de la interfaz (src/i18n.js): T('clave', { variables }). Todo lo visible se traduce al dibujarlo, así un
+// cambio de idioma (evento 'langchange') sólo tiene que volver a dibujar.
+const T = (key, vars) => window.I18N.t(key, vars);
+const modeName = (m) => T('mode.' + m);
 const SPEEDS = [0.5, 1, 2, 3, 4];
-const SONGS = [['pulso', 'Pulso (electro-pop)'], ['orbita', 'Órbita (synthwave)'], ['fase', 'Fase (drum & bass)'], ['ladera', 'Ladera (chiptune)'], ['espejo', 'Espejo (electro oscuro)'], ['abismo', 'Abismo (duro)'], ['sangre', 'Baño de Sangre (metal electrónico)']];
+// canciones sintetizadas: nombre en song.<id>
+const SONGS = ['pulso', 'orbita', 'fase', 'ladera', 'espejo', 'abismo', 'sangre'];
 const SONG_BPM = { pulso: 155.79, orbita: 150, fase: 170, ladera: 140, espejo: 160, abismo: 175, sangre: 186 };
 // canciones reales (MP3, tracks.js): van primero en la lista
 if (window.Tracks) {
-  const real = Object.entries(Tracks.TRACKS).filter(([, t]) => !t.loop).map(([id, t]) => ['track:' + id, `${t.name} (${t.bpm} BPM)`]);
-  for (const [id] of real) SONG_BPM[id] = Tracks.TRACKS[id.slice(6)].bpm;
+  const real = Object.entries(Tracks.TRACKS).filter(([, t]) => !t.loop).map(([id]) => 'track:' + id);
+  for (const id of real) SONG_BPM[id] = Tracks.TRACKS[id.slice(6)].bpm;
   SONGS.unshift(...real);
+}
+function songName(id) {
+  if (!id.startsWith('track:')) return T('song.' + id);
+  const tr = Tracks.TRACKS[id.slice(6)];
+  return `${window.I18N.trackName(id.slice(6), tr.name)} (${tr.bpm} BPM)`;
 }
 const PAD_KINDS = ['yellow', 'pink', 'red', 'blue'];
 const ORB_KINDS = ['yellow', 'pink', 'red', 'blue', 'green', 'black'];
-const KIND_NAME = { yellow: 'Amarillo', pink: 'Rosa', red: 'Rojo', blue: 'Azul', green: 'Verde', black: 'Negro' };
+const kindName = (k) => T('color.' + k);
 const PORTAL_KINDS = ['cube', 'ship', 'ball', 'ufo', 'wave', 'robot', 'spider', 'swing', 'flip', 'unflip', 'mini', 'big', 'dual', 'single'];
-const PORTAL_NAME = Object.assign({}, MODE_NAME, { flip: 'Gravedad invertida', unflip: 'Gravedad normal', mini: 'Tamaño mini', big: 'Tamaño normal', dual: 'Dual', single: 'Simple (fin del dual)' });
-const DECO_KINDS = [['glow', 'Brillo'], ['pillar', 'Pilar'], ['ring', 'Aro'], ['diamond', 'Rombo'], ['arrow', 'Flechas'], ['line', 'Línea']];
+const portalName = (k) => (MODES.includes(k) ? modeName(k) : T('portal.' + k));
+const DECO_KINDS = ['glow', 'pillar', 'ring', 'diamond', 'arrow', 'line'];
+const decoName = (k) => T('deco.' + k);
+// nombre y nombre en minúsculas (el español escribe "Portal: cubo"; el inglés, "Portal: Cube")
+const nl = (name) => ({ name, lname: name.toLowerCase() });
 const EXTRA_COLOR = { robot: '#c8ff3b', spider: '#b48cff', swing: '#ffd23a', dual: '#ff7a3d', single: '#7ad9ff' };
 
 // ------------------------------------------------------------ paleta
-const CATS = [['bloques', 'Bloques'], ['peligros', 'Peligros'], ['saltos', 'Saltos'], ['portales', 'Portales'], ['extra', 'Extra'], ['triggers', 'Triggers']];
+const CATS = ['bloques', 'peligros', 'saltos', 'portales', 'extra', 'triggers'];
 // Triggers (ver sim.js): se colocan como marcas verticales en su x; `y` sólo sirve para dibujar la marca.
-const EASES = [['inout', 'Suave'], ['linear', 'Lineal'], ['in', 'Acelera'], ['out', 'Frena'], ['bounce', 'Rebote']];
+const EASES = ['inout', 'linear', 'in', 'out', 'bounce'];
+// nombre de cada trigger: trig.<tipo> (src/i18n.js)
 const TRIG = {
-  move: { name: 'Mover grupo', icon: '⇄', color: '#3bc8ff', tpl: { group: 1, dx: 2, dy: 0, dur: 4, ease: 'inout' } },
-  rotate: { name: 'Girar grupo', icon: '⟳', color: '#b48cff', tpl: { group: 1, deg: 90, dur: 4, ease: 'inout' } },
-  alpha: { name: 'Transparencia', icon: '◐', color: '#cfd6ff', tpl: { group: 1, alpha: 0, dur: 2 } },
-  toggle: { name: 'Encender/apagar', icon: '⏻', color: '#7ee83a', tpl: { group: 1, on: false } },
-  spawn: { name: 'Lanzar (spawn)', icon: '✦', color: '#ffd23a', tpl: { target: 1, delay: 4 } },
-  follow: { name: 'Seguir grupo', icon: '⇉', color: '#ff7a3d', tpl: { group: 1, follower: 2, dur: 8, kx: 1, ky: 1 } },
-  camzoom: { name: 'Cámara: zoom', icon: '⊕', color: '#ff5a8a', tpl: { zoom: 1.4, dur: 4, ease: 'inout' } },
-  camoffset: { name: 'Cámara: desplazar', icon: '✥', color: '#ff5a8a', tpl: { dx: 0, dy: 2, dur: 4, ease: 'inout' } },
-  camrotate: { name: 'Cámara: girar', icon: '↻', color: '#ff5a8a', tpl: { deg: 8, dur: 4, ease: 'inout' } },
-  pulse: { name: 'Destello', icon: '✺', color: '#ffffff', tpl: { color: '#ffffff', dur: 4 } },
-  shake: { name: 'Sacudida', icon: '≋', color: '#ffb13b', tpl: { power: 4, dur: 3 } },
+  move: { icon: '⇄', color: '#3bc8ff', tpl: { group: 1, dx: 2, dy: 0, dur: 4, ease: 'inout' } },
+  rotate: { icon: '⟳', color: '#b48cff', tpl: { group: 1, deg: 90, dur: 4, ease: 'inout' } },
+  alpha: { icon: '◐', color: '#cfd6ff', tpl: { group: 1, alpha: 0, dur: 2 } },
+  toggle: { icon: '⏻', color: '#7ee83a', tpl: { group: 1, on: false } },
+  spawn: { icon: '✦', color: '#ffd23a', tpl: { target: 1, delay: 4 } },
+  follow: { icon: '⇉', color: '#ff7a3d', tpl: { group: 1, follower: 2, dur: 8, kx: 1, ky: 1 } },
+  camzoom: { icon: '⊕', color: '#ff5a8a', tpl: { zoom: 1.4, dur: 4, ease: 'inout' } },
+  camoffset: { icon: '✥', color: '#ff5a8a', tpl: { dx: 0, dy: 2, dur: 4, ease: 'inout' } },
+  camrotate: { icon: '↻', color: '#ff5a8a', tpl: { deg: 8, dur: 4, ease: 'inout' } },
+  pulse: { icon: '✺', color: '#ffffff', tpl: { color: '#ffffff', dur: 4 } },
+  shake: { icon: '≋', color: '#ffb13b', tpl: { power: 4, dur: 3 } },
 };
-// Campos editables de cada trigger: [campo, etiqueta, tipo, mín, máx, paso]
+const trigName = (k) => T('trig.' + k);
+// Campos editables de cada trigger: [campo, etiqueta (clave ed.f.<etiqueta>), tipo, mín, máx, paso]
 const TRIG_FIELDS = {
-  move: [['group', 'Grupo', 'int', 1, 999], ['dx', 'Mover x (bloques)', 'num', -200, 200, 0.5], ['dy', 'Mover y (bloques)', 'num', -60, 60, 0.5], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease']],
-  rotate: [['group', 'Grupo', 'int', 1, 999], ['deg', 'Grados (+ horario)', 'num', -3600, 3600, 15], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease'], ['center', 'Centro propio', 'center']],
-  alpha: [['group', 'Grupo', 'int', 1, 999], ['alpha', 'Opacidad (0-1)', 'num', 0, 1, 0.1], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5]],
-  toggle: [['group', 'Grupo', 'int', 1, 999], ['on', 'Encendido', 'bool']],
-  spawn: [['target', 'Objetivo (id o grupo)', 'target'], ['delay', 'Retraso (bloques)', 'num', 0, 400, 0.5]],
-  follow: [['group', 'Grupo que manda', 'int', 1, 999], ['follower', 'Grupo que sigue', 'int', 1, 999], ['kx', 'Factor x', 'num', -10, 10, 0.1], ['ky', 'Factor y', 'num', -10, 10, 0.1], ['dur', 'Duración (0 = siempre)', 'num', 0, 2000, 0.5]],
-  camzoom: [['zoom', 'Zoom', 'num', 0.3, 4, 0.1], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease']],
-  camoffset: [['dx', 'Desplazar x (bloques)', 'num', -30, 30, 0.5], ['dy', 'Desplazar y (bloques)', 'num', -30, 30, 0.5], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease']],
-  camrotate: [['deg', 'Grados', 'num', -180, 180, 1], ['dur', 'Duración (bloques)', 'num', 0, 400, 0.5], ['ease', 'Curva', 'ease']],
-  pulse: [['color', 'Color', 'color'], ['dur', 'Duración (bloques)', 'num', 0, 40, 0.5]],
-  shake: [['power', 'Fuerza', 'num', 0, 20, 0.5], ['dur', 'Duración (bloques)', 'num', 0, 40, 0.5]],
+  move: [['group', 'group', 'int', 1, 999], ['dx', 'dxMove', 'num', -200, 200, 0.5], ['dy', 'dyMove', 'num', -60, 60, 0.5], ['dur', 'dur', 'num', 0, 400, 0.5], ['ease', 'ease', 'ease']],
+  rotate: [['group', 'group', 'int', 1, 999], ['deg', 'degCw', 'num', -3600, 3600, 15], ['dur', 'dur', 'num', 0, 400, 0.5], ['ease', 'ease', 'ease'], ['center', 'center', 'center']],
+  alpha: [['group', 'group', 'int', 1, 999], ['alpha', 'alpha', 'num', 0, 1, 0.1], ['dur', 'dur', 'num', 0, 400, 0.5]],
+  toggle: [['group', 'group', 'int', 1, 999], ['on', 'on', 'bool']],
+  spawn: [['target', 'target', 'target'], ['delay', 'delay', 'num', 0, 400, 0.5]],
+  follow: [['group', 'leader', 'int', 1, 999], ['follower', 'follower', 'int', 1, 999], ['kx', 'kx', 'num', -10, 10, 0.1], ['ky', 'ky', 'num', -10, 10, 0.1], ['dur', 'durAlways', 'num', 0, 2000, 0.5]],
+  camzoom: [['zoom', 'zoom', 'num', 0.3, 4, 0.1], ['dur', 'dur', 'num', 0, 400, 0.5], ['ease', 'ease', 'ease']],
+  camoffset: [['dx', 'dxOff', 'num', -30, 30, 0.5], ['dy', 'dyOff', 'num', -30, 30, 0.5], ['dur', 'dur', 'num', 0, 400, 0.5], ['ease', 'ease', 'ease']],
+  camrotate: [['deg', 'deg', 'num', -180, 180, 1], ['dur', 'dur', 'num', 0, 400, 0.5], ['ease', 'ease', 'ease']],
+  pulse: [['color', 'color', 'color'], ['dur', 'dur', 'num', 0, 40, 0.5]],
+  shake: [['power', 'power', 'num', 0, 20, 0.5], ['dur', 'dur', 'num', 0, 40, 0.5]],
 };
 const TRIG_ID = /^[A-Za-z0-9_-]{1,20}$/;
+// Nombre de cada objeto de la paleta: se traduce al leerlo (it.name), ver named().
+const named = (it, key, vars) => Object.defineProperty(it, 'name', { enumerable: true, get: () => T(key, vars && vars()) });
 const ITEMS = [
-  { id: 'block', cat: 'bloques', name: 'Bloque', tpl: { t: 'block', w: 1, h: 1 } },
-  { id: 'slab', cat: 'bloques', name: 'Losa', tpl: { t: 'block', w: 1, h: 0.5 } },
-  { id: 'wide', cat: 'bloques', name: 'Plataforma 3×1', tpl: { t: 'block', w: 3, h: 1 } },
-  { id: 'slope1', cat: 'bloques', name: 'Rampa 45°', tpl: { t: 'slope', w: 1, h: 1, dir: 1 } },
-  { id: 'slope2', cat: 'bloques', name: 'Rampa suave', tpl: { t: 'slope', w: 2, h: 1, dir: 1 } },
-  { id: 'steep', cat: 'bloques', name: 'Rampa empinada', tpl: { t: 'slope', w: 1, h: 2, dir: 1 } },
-  { id: 'ceil1', cat: 'bloques', name: 'Rampa de techo', tpl: { t: 'slope', w: 1, h: 1, dir: 1, ceil: true } },
-  { id: 'spike', cat: 'peligros', name: 'Pincho', tpl: { t: 'spike', r: 0 } },
-  { id: 'spikeTop', cat: 'peligros', name: 'Pincho de techo', tpl: { t: 'spike', r: 180 } },
-  { id: 'small', cat: 'peligros', name: 'Pincho pequeño', tpl: { t: 'spike', r: 0, size: 0.5 } },
-  { id: 'saw1', cat: 'peligros', name: 'Sierra', tpl: { t: 'saw', size: 1 } },
-  { id: 'saw2', cat: 'peligros', name: 'Sierra grande', tpl: { t: 'saw', size: 2 } },
+  named({ id: 'block', cat: 'bloques', tpl: { t: 'block', w: 1, h: 1 } }, 'item.block'),
+  named({ id: 'slab', cat: 'bloques', tpl: { t: 'block', w: 1, h: 0.5 } }, 'item.slab'),
+  named({ id: 'wide', cat: 'bloques', tpl: { t: 'block', w: 3, h: 1 } }, 'item.wide'),
+  named({ id: 'slope1', cat: 'bloques', tpl: { t: 'slope', w: 1, h: 1, dir: 1 } }, 'item.slope1'),
+  named({ id: 'slope2', cat: 'bloques', tpl: { t: 'slope', w: 2, h: 1, dir: 1 } }, 'item.slope2'),
+  named({ id: 'steep', cat: 'bloques', tpl: { t: 'slope', w: 1, h: 2, dir: 1 } }, 'item.steep'),
+  named({ id: 'ceil1', cat: 'bloques', tpl: { t: 'slope', w: 1, h: 1, dir: 1, ceil: true } }, 'item.ceil1'),
+  named({ id: 'spike', cat: 'peligros', tpl: { t: 'spike', r: 0 } }, 'item.spike'),
+  named({ id: 'spikeTop', cat: 'peligros', tpl: { t: 'spike', r: 180 } }, 'item.spikeTop'),
+  named({ id: 'small', cat: 'peligros', tpl: { t: 'spike', r: 0, size: 0.5 } }, 'item.small'),
+  named({ id: 'saw1', cat: 'peligros', tpl: { t: 'saw', size: 1 } }, 'item.saw1'),
+  named({ id: 'saw2', cat: 'peligros', tpl: { t: 'saw', size: 2 } }, 'item.saw2'),
 ];
-for (const k of PAD_KINDS) ITEMS.push({ id: 'pad_' + k, cat: 'saltos', name: 'Pad ' + KIND_NAME[k].toLowerCase(), tpl: { t: 'pad', kind: k, r: 0 } });
-for (const k of ORB_KINDS) ITEMS.push({ id: 'orb_' + k, cat: 'saltos', name: 'Orbe ' + KIND_NAME[k].toLowerCase(), tpl: { t: 'orb', kind: k } });
-for (const k of PORTAL_KINDS) ITEMS.push({ id: 'p_' + k, cat: 'portales', name: 'Portal: ' + PORTAL_NAME[k].toLowerCase(), tpl: { t: 'portal', kind: k } });
-for (const v of SPEEDS) ITEMS.push({ id: 'sp' + v, cat: 'portales', name: `Velocidad ${v}x`, tpl: { t: 'portal', kind: 'speed', value: v } });
+const kindVars = (k) => () => ({ Kind: kindName(k), kind: kindName(k).toLowerCase() });
+for (const k of PAD_KINDS) ITEMS.push(named({ id: 'pad_' + k, cat: 'saltos', tpl: { t: 'pad', kind: k, r: 0 } }, 'item.pad', kindVars(k)));
+for (const k of ORB_KINDS) ITEMS.push(named({ id: 'orb_' + k, cat: 'saltos', tpl: { t: 'orb', kind: k } }, 'item.orb', kindVars(k)));
+for (const k of PORTAL_KINDS) ITEMS.push(named({ id: 'p_' + k, cat: 'portales', tpl: { t: 'portal', kind: k } }, 'item.portal', () => nl(portalName(k))));
+for (const v of SPEEDS) ITEMS.push(named({ id: 'sp' + v, cat: 'portales', tpl: { t: 'portal', kind: 'speed', value: v } }, 'item.speed', () => ({ v })));
 ITEMS.push(
-  { id: 'coin', cat: 'extra', name: 'Moneda', tpl: { t: 'coin' } },
-  { id: 'color', cat: 'extra', name: 'Cambio de color', special: 'color' },
+  named({ id: 'coin', cat: 'extra', tpl: { t: 'coin' } }, 'item.coin'),
+  named({ id: 'color', cat: 'extra', special: 'color' }, 'item.color'),
 );
-for (const [k, n] of DECO_KINDS) ITEMS.push({ id: 'd_' + k, cat: 'extra', name: 'Decorado: ' + n.toLowerCase(), deco: { kind: k, color: '#ffffff' } });
-for (const k of Object.keys(TRIG)) ITEMS.push({ id: 't_' + k, cat: 'triggers', name: 'Trigger: ' + TRIG[k].name.toLowerCase(), trig: Object.assign({ kind: k }, TRIG[k].tpl) });
+for (const k of DECO_KINDS) ITEMS.push(named({ id: 'd_' + k, cat: 'extra', deco: { kind: k, color: '#ffffff' } }, 'item.deco', () => nl(decoName(k))));
+for (const k of Object.keys(TRIG)) ITEMS.push(named({ id: 't_' + k, cat: 'triggers', trig: Object.assign({ kind: k }, TRIG[k].tpl) }, 'item.trig', () => nl(trigName(k))));
 const ITEM = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 const num = (v, a, b) => typeof v === 'number' && isFinite(v) && v >= a && v <= b;
 
@@ -108,12 +125,12 @@ function boot() {
   }
   let levels = load();
   function persistLevels() {
-    try { localStorage.setItem(STORE, JSON.stringify(levels)); return true; } catch (e) { toast('No se pudo guardar en este navegador (¿sin espacio?)'); return false; }
+    try { localStorage.setItem(STORE, JSON.stringify(levels)); return true; } catch (e) { toast(T('ed.t.saveFail')); return false; }
   }
   function uid() { return 'u' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
   function newLevel() {
     return {
-      id: uid(), name: 'Mi nivel ' + (levels.length + 1), song: 'pulso', bpm: SONG_BPM.pulso,
+      id: uid(), name: T('ed.n.new', { n: levels.length + 1 }), song: 'pulso', bpm: SONG_BPM.pulso,
       startMode: 'cube', startSpeed: 1, length: 0, objects: [], decos: [], triggers: [],
       colors: [{ x: 0, bg: '#3d6bff', ground: '#2a3fb0', line: '#ffffff', obj: '#ff9f3b' }],
       created: Date.now(), updated: Date.now(),
@@ -765,7 +782,7 @@ function boot() {
     if (mod && e.code === 'KeyZ' && !e.shiftKey) undo();
     else if ((mod && e.code === 'KeyY') || (mod && e.shiftKey && e.code === 'KeyZ')) redo();
     else if (mod && e.code === 'KeyD') duplicateSel();
-    else if (mod && e.code === 'KeyS') { persistLevels(); toast('Guardado'); }
+    else if (mod && e.code === 'KeyS') { persistLevels(); toast(T('ed.t.saved')); }
     else if (mod) handled = false;
     else if (e.code === 'Delete' || e.code === 'Backspace') removeSel();
     else if (e.code === 'KeyR') rotate();
@@ -875,28 +892,29 @@ function boot() {
   style.textContent = css;
   document.head.appendChild(style);
 
+  // Textos con data-i18n* (src/i18n.js): I18N.apply(root) los rellena al construir y al cambiar de idioma.
   root.innerHTML = `
     <div class="ed-ui" id="edUi" hidden>
       <div class="ed-box ed-top">
-        <button class="ed-b" id="edBack" title="Mis niveles" aria-label="Mis niveles">‹</button>
-        <input type="text" id="edName" maxlength="40" aria-label="Nombre del nivel">
-        <button class="ed-b" id="edUndo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer">↶</button>
-        <button class="ed-b" id="edRedo" title="Rehacer (Ctrl+Y)" aria-label="Rehacer">↷</button>
-        <button class="ed-b" id="edSettings" title="Ajustes del nivel" aria-label="Ajustes del nivel">⚙<span class="lbl"> Ajustes</span></button>
-        <button class="ed-b" id="edShare" title="Compartir código" aria-label="Compartir">⇪<span class="lbl"> Compartir</span></button>
-        <button class="ed-b danger" id="edClear" title="Vaciar el nivel" aria-label="Vaciar el nivel">🗑</button>
+        <button class="ed-b" id="edBack" data-i18n-title="ed.myLevels" data-i18n-aria="ed.myLevels">‹</button>
+        <input type="text" id="edName" maxlength="40" data-i18n-aria="ed.levelName">
+        <button class="ed-b" id="edUndo" data-i18n-title="ed.undoTitle" data-i18n-aria="ed.undo">↶</button>
+        <button class="ed-b" id="edRedo" data-i18n-title="ed.redoTitle" data-i18n-aria="ed.redo">↷</button>
+        <button class="ed-b" id="edSettings" data-i18n-title="ed.settingsTitle" data-i18n-aria="ed.settingsTitle">⚙<span class="lbl"> <span data-i18n="ed.settings"></span></span></button>
+        <button class="ed-b" id="edShare" data-i18n-title="ed.shareTitle" data-i18n-aria="ed.share">⇪<span class="lbl"> <span data-i18n="ed.share"></span></span></button>
+        <button class="ed-b danger" id="edClear" data-i18n-title="ed.clearTitle" data-i18n-aria="ed.clearTitle">🗑</button>
         <span class="sp"></span>
-        <button class="ed-b" id="edVerify" title="El bot comprueba si se puede completar" aria-label="Verificar">✔<span class="lbl"> Verificar</span></button>
-        <button class="ed-b go" id="edPlayHere" title="Probar desde donde estás mirando (Mayús+P)" aria-label="Probar desde aquí">⏵<span class="lbl"> Desde aquí</span></button>
-        <button class="ed-b go" id="edPlay" title="Probar (P)" aria-label="Probar">▶<span class="lbl"> Probar</span></button>
-        <button class="ed-b pr" id="edPractice" title="Probar en modo práctica" aria-label="Práctica">◆<span class="lbl"> Práctica</span></button>
+        <button class="ed-b" id="edVerify" data-i18n-title="ed.verifyTitle" data-i18n-aria="ed.verify">✔<span class="lbl"> <span data-i18n="ed.verify"></span></span></button>
+        <button class="ed-b go" id="edPlayHere" data-i18n-title="ed.playHereTitle" data-i18n-aria="ed.playHereAria">⏵<span class="lbl"> <span data-i18n="ed.playHere"></span></span></button>
+        <button class="ed-b go" id="edPlay" data-i18n-title="ed.playTitle" data-i18n-aria="ed.play">▶<span class="lbl"> <span data-i18n="ed.play"></span></span></button>
+        <button class="ed-b pr" id="edPractice" data-i18n-title="ed.practiceTitle" data-i18n-aria="ed.practice">◆<span class="lbl"> <span data-i18n="ed.practice"></span></span></button>
       </div>
       <div class="ed-box ed-side" id="edSide">
         <div class="ed-tools">
-          <button class="ed-b" data-tool="place" title="Colocar (1)"><i>✚</i>Poner</button>
-          <button class="ed-b" data-tool="select" title="Seleccionar y mover (2)"><i>☝</i>Mover</button>
-          <button class="ed-b" data-tool="erase" title="Borrar (3) · también clic derecho"><i>✖</i>Borrar</button>
-          <button class="ed-b" data-tool="pan" title="Desplazar la vista (4) · también Espacio + arrastrar"><i>✥</i>Vista</button>
+          <button class="ed-b" data-tool="place" data-i18n-title="ed.tool.placeTitle"><i>✚</i><span data-i18n="ed.tool.place"></span></button>
+          <button class="ed-b" data-tool="select" data-i18n-title="ed.tool.selectTitle"><i>☝</i><span data-i18n="ed.tool.select"></span></button>
+          <button class="ed-b" data-tool="erase" data-i18n-title="ed.tool.eraseTitle"><i>✖</i><span data-i18n="ed.tool.erase"></span></button>
+          <button class="ed-b" data-tool="pan" data-i18n-title="ed.tool.panTitle"><i>✥</i><span data-i18n="ed.tool.pan"></span></button>
         </div>
         <div class="ed-cats" id="edCats" role="tablist"></div>
         <div class="ed-pal" id="edPal"></div>
@@ -904,27 +922,28 @@ function boot() {
       </div>
       <div class="ed-box ed-status">
         <span id="edPos">x 0 · y 0</span>
-        <span class="keys">R gira · Supr borra · Ctrl+Z/Y · rueda desplaza · Ctrl+rueda zoom · Espacio+arrastrar mueve la vista · G rejilla fina · V vista · T vista previa de triggers</span>
-        <button class="ed-b" id="edFine" title="Rejilla de medio bloque (G)" aria-label="Rejilla fina">½</button>
-        <button class="ed-b" id="edFlat" title="Vista plana / 3D (V)" aria-label="Vista plana o 3D">3D</button>
-        <button class="ed-b" id="edTrigView" title="Ver el efecto de los triggers en la x de la vista (T)" aria-label="Vista previa de triggers">T</button>
-        <button class="ed-b" id="edZoomOut" title="Alejar (-)" aria-label="Alejar">−</button>
-        <button class="ed-b" id="edZoomIn" title="Acercar (+)" aria-label="Acercar">+</button>
-        <button class="ed-b" id="edHome" title="Volver al inicio (Inicio)" aria-label="Ir al inicio">⌂</button>
+        <span class="keys" data-i18n="ed.keys"></span>
+        <button class="ed-b" id="edFine" data-i18n-title="ed.fineTitle" data-i18n-aria="ed.fine">½</button>
+        <button class="ed-b" id="edFlat" data-i18n-title="ed.flatTitle" data-i18n-aria="ed.flat">3D</button>
+        <button class="ed-b" id="edTrigView" data-i18n-title="ed.trigViewTitle" data-i18n-aria="ed.trigView">T</button>
+        <button class="ed-b" id="edZoomOut" data-i18n-title="ed.zoomOutTitle" data-i18n-aria="ed.zoomOut">−</button>
+        <button class="ed-b" id="edZoomIn" data-i18n-title="ed.zoomInTitle" data-i18n-aria="ed.zoomIn">+</button>
+        <button class="ed-b" id="edHome" data-i18n-title="ed.homeTitle" data-i18n-aria="ed.home">⌂</button>
       </div>
     </div>
     <div class="ed-list" id="edList" hidden>
       <div class="panel">
-        <h2>Mis niveles</h2>
+        <h2 data-i18n="ed.myLevels"></h2>
         <div class="ed-cards" id="edCards"></div>
         <div class="row">
-          <button class="btn" id="edNew">Nuevo nivel</button>
-          <button class="btn purple" id="edImport">Importar</button>
-          <button class="btn ghost" id="edExit">Menú</button>
+          <button class="btn" id="edNew" data-i18n="ed.newLevel"></button>
+          <button class="btn purple" id="edImport" data-i18n="ed.import"></button>
+          <button class="btn ghost" id="edExit" data-i18n="ed.menu"></button>
         </div>
       </div>
     </div>
     <div class="ed-modal" id="edModal" hidden><div class="panel" id="edModalBody"></div></div>`;
+  window.I18N.apply(root);
 
   let toastTimer = 0, toastEl = null;
   function toast(msg) {
@@ -938,7 +957,7 @@ function boot() {
   function status() {
     if (!ed.lv) return;
     const h = ed.hover || { x: 0, y: 0 };
-    $('edPos').textContent = `x ${Math.floor(h.x)} · y ${Math.floor(h.y)} · ${ed.lv.objects.length} obj · largo ${lengthOf(ed.lv)}${ed.lv.length > 0 ? '' : ' (auto)'}`;
+    $('edPos').textContent = T('ed.status', { x: Math.floor(h.x), y: Math.floor(h.y), n: ed.lv.objects.length, len: lengthOf(ed.lv), auto: ed.lv.length > 0 ? '' : T('ed.auto') });
     $('edUndo').disabled = !ed.undo.length;
     $('edRedo').disabled = !ed.redo.length;
   }
@@ -1020,7 +1039,7 @@ function boot() {
   }
 
   function renderPalette() {
-    $('edCats').innerHTML = CATS.map(([id, n]) => `<button class="${id === ed.cat ? 'on' : ''}" data-cat="${id}" role="tab" aria-selected="${id === ed.cat}">${n}</button>`).join('');
+    $('edCats').innerHTML = CATS.map((id) => `<button class="${id === ed.cat ? 'on' : ''}" data-cat="${id}" role="tab" aria-selected="${id === ed.cat}">${T('ed.cat.' + id)}</button>`).join('');
     $('edCats').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { ed.cat = b.dataset.cat; renderPalette(); }));
     const items = ITEMS.filter((i) => i.cat === ed.cat);
     $('edPal').innerHTML = items.map((i) => `<button data-item="${i.id}" class="${i.id === ed.item ? 'on' : ''}" title="${esc(i.name)}" aria-label="${esc(i.name)}">${icon(i, i.id === ed.item && ed.place && i.tpl ? ed.place : null)}</button>`).join('');
@@ -1028,7 +1047,7 @@ function boot() {
   }
 
   function stepper(label, value, id) {
-    return `<div class="ed-f"><span>${label}</span><span class="ed-step"><button data-step="${id}" data-d="-1" aria-label="${label}: menos">−</button><b>${value}</b><button data-step="${id}" data-d="1" aria-label="${label}: más">+</button></span></div>`;
+    return `<div class="ed-f"><span>${label}</span><span class="ed-step"><button data-step="${id}" data-d="-1" aria-label="${T('ed.p.less', { label })}">−</button><b>${value}</b><button data-step="${id}" data-d="1" aria-label="${T('ed.p.more', { label })}">+</button></span></div>`;
   }
   const opt = (list, cur, name) => list.map((v) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${esc(name ? name(v) : v)}</option>`).join('');
   // Panel de propiedades: del objeto seleccionado o, si no hay, de lo que se va a colocar.
@@ -1040,68 +1059,68 @@ function boot() {
     if (!o && ed.tool === 'place') {
       const it = ITEM[ed.item];
       if (it.special === 'color') {
-        box.innerHTML = '<h3>Cambio de color</h3><span class="tag">Toca en el nivel para que los colores cambien desde esa x. Luego elígelo con "Mover" para cambiar sus colores.</span>';
+        box.innerHTML = `<h3>${esc(T('item.color'))}</h3><span class="tag">${esc(T('ed.p.colorTag'))}</span>`;
         return;
       }
       o = ed.place; k = it.deco ? 'deco' : it.trig ? 'trig' : 'obj';
     }
     if (!o) {
-      const tips = { select: 'Toca un objeto para elegirlo y arrástralo para moverlo. En el vacío, arrastrar desplaza la vista.', erase: 'Toca o arrastra sobre los objetos para borrarlos.', pan: 'Arrastra para mover la vista. Con dos dedos o Ctrl+rueda: zoom.' };
-      box.innerHTML = `<span class="tag">${tips[ed.tool] || ''}</span>`;
+      const tips = { select: 'ed.p.tipSelect', erase: 'ed.p.tipErase', pan: 'ed.p.tipPan' };
+      box.innerHTML = `<span class="tag">${tips[ed.tool] ? T(tips[ed.tool]) : ''}</span>`;
       return;
     }
     let html = '', title = '';
     if (k === 'obj') {
       const it = ITEMS.find((i) => i.tpl && i.tpl.t === o.t && (i.tpl.kind || '') === (o.kind || '') && (o.kind !== 'speed' || i.tpl.value === o.value));
-      title = o.t === 'block' ? 'Bloque' : o.t === 'slope' ? (o.ceil ? 'Rampa de techo' : 'Rampa') : o.t === 'spike' ? (o.size === 0.5 ? 'Pincho pequeño' : 'Pincho') : o.t === 'saw' ? 'Sierra' : it ? it.name : o.t;
-      if (o.t === 'block' || o.t === 'slope') html += stepper('Ancho', o.w || 1, 'w') + stepper('Alto', o.h || 1, 'h');
-      if (o.t === 'slope') html += `<div class="ed-f"><span>Rampa de techo</span><input type="checkbox" data-field="ceil" ${o.ceil ? 'checked' : ''}></div>`;
-      if (o.t === 'spike') html += `<div class="ed-f"><span>Pequeño</span><input type="checkbox" data-field="small" ${o.size === 0.5 ? 'checked' : ''}></div>`;
-      if (o.t === 'saw') html += `<div class="ed-f"><span>Tamaño</span><select data-field="size">${opt([0.5, 1, 1.5, 2, 2.5, 3], o.size || 1)}</select></div>`;
-      if (o.t === 'pad') html += `<div class="ed-f"><span>Tipo</span><select data-field="kind">${opt(PAD_KINDS, o.kind, (v) => KIND_NAME[v])}</select></div>`;
-      if (o.t === 'orb') html += `<div class="ed-f"><span>Tipo</span><select data-field="kind">${opt(ORB_KINDS, o.kind, (v) => KIND_NAME[v])}</select></div>`;
-      if (o.t === 'portal' && o.kind !== 'speed') html += `<div class="ed-f"><span>Portal</span><select data-field="kind">${opt(PORTAL_KINDS, o.kind, (v) => PORTAL_NAME[v])}</select></div>`;
-      if (o.t === 'portal' && o.kind === 'speed') html += `<div class="ed-f"><span>Velocidad</span><select data-field="value">${opt(SPEEDS, o.value, (v) => v + 'x')}</select></div>`;
-      if (o.t === 'spike' || o.t === 'pad' || o.t === 'slope') html += `<div class="ed-acts"><button class="ed-b" data-act="rotate">⟳ Girar (R)${o.t === 'spike' ? ' · ' + (o.r || 0) + '°' : ''}</button></div>`;
+      title = o.t === 'block' ? T('item.block') : o.t === 'slope' ? (o.ceil ? T('item.ceil1') : T('ed.p.slope')) : o.t === 'spike' ? (o.size === 0.5 ? T('item.small') : T('item.spike')) : o.t === 'saw' ? T('item.saw1') : it ? it.name : o.t;
+      if (o.t === 'block' || o.t === 'slope') html += stepper(T('ed.p.width'), o.w || 1, 'w') + stepper(T('ed.p.height'), o.h || 1, 'h');
+      if (o.t === 'slope') html += `<div class="ed-f"><span>${T('item.ceil1')}</span><input type="checkbox" data-field="ceil" ${o.ceil ? 'checked' : ''}></div>`;
+      if (o.t === 'spike') html += `<div class="ed-f"><span>${T('ed.p.small')}</span><input type="checkbox" data-field="small" ${o.size === 0.5 ? 'checked' : ''}></div>`;
+      if (o.t === 'saw') html += `<div class="ed-f"><span>${T('ed.p.size')}</span><select data-field="size">${opt([0.5, 1, 1.5, 2, 2.5, 3], o.size || 1)}</select></div>`;
+      if (o.t === 'pad') html += `<div class="ed-f"><span>${T('ed.p.type')}</span><select data-field="kind">${opt(PAD_KINDS, o.kind, kindName)}</select></div>`;
+      if (o.t === 'orb') html += `<div class="ed-f"><span>${T('ed.p.type')}</span><select data-field="kind">${opt(ORB_KINDS, o.kind, kindName)}</select></div>`;
+      if (o.t === 'portal' && o.kind !== 'speed') html += `<div class="ed-f"><span>${T('ed.p.portal')}</span><select data-field="kind">${opt(PORTAL_KINDS, o.kind, portalName)}</select></div>`;
+      if (o.t === 'portal' && o.kind === 'speed') html += `<div class="ed-f"><span>${T('ed.p.speed')}</span><select data-field="value">${opt(SPEEDS, o.value, (v) => v + 'x')}</select></div>`;
+      if (o.t === 'spike' || o.t === 'pad' || o.t === 'slope') html += `<div class="ed-acts"><button class="ed-b" data-act="rotate">${T('ed.p.rotate')}${o.t === 'spike' ? ' · ' + (o.r || 0) + '°' : ''}</button></div>`;
     } else if (k === 'deco') {
-      title = 'Decorado: ' + ((DECO_KINDS.find(([d]) => d === o.kind) || [0, o.kind])[1]).toLowerCase();
-      html += `<div class="ed-f"><span>Color</span><input type="color" data-field="color" value="${o.color || '#ffffff'}"></div>`;
-      if (o.kind === 'pillar') html += stepper('Ancho', o.w || 1, 'w') + stepper('Alto', o.h || 6, 'h');
-      else if (o.kind === 'line') html += stepper('Largo', o.w || 6, 'w');
-      else if (o.kind !== 'arrow') html += stepper('Tamaño', o.r || (o.kind === 'glow' || o.kind === 'ring' ? 2 : 1), 'r');
-      html += `<div class="ed-f"><span>Capa</span><select data-field="layer"><option value="bg" ${o.layer !== 'fg' ? 'selected' : ''}>Fondo</option><option value="fg" ${o.layer === 'fg' ? 'selected' : ''}>Delante</option></select></div>`;
+      title = T('item.deco', nl(DECO_KINDS.includes(o.kind) ? decoName(o.kind) : String(o.kind)));
+      html += `<div class="ed-f"><span>${T('ed.p.color')}</span><input type="color" data-field="color" value="${o.color || '#ffffff'}"></div>`;
+      if (o.kind === 'pillar') html += stepper(T('ed.p.width'), o.w || 1, 'w') + stepper(T('ed.p.height'), o.h || 6, 'h');
+      else if (o.kind === 'line') html += stepper(T('ed.p.length'), o.w || 6, 'w');
+      else if (o.kind !== 'arrow') html += stepper(T('ed.p.size'), o.r || (o.kind === 'glow' || o.kind === 'ring' ? 2 : 1), 'r');
+      html += `<div class="ed-f"><span>${T('ed.p.layer')}</span><select data-field="layer"><option value="bg" ${o.layer !== 'fg' ? 'selected' : ''}>${T('ed.p.back')}</option><option value="fg" ${o.layer === 'fg' ? 'selected' : ''}>${T('ed.p.front')}</option></select></div>`;
     } else if (k === 'color') {
-      title = `Cambio de color en x ${o.x}`;
-      for (const [f, n] of [['bg', 'Fondo'], ['ground', 'Suelo'], ['obj', 'Bloques'], ['line', 'Línea']]) {
-        html += `<div class="ed-f"><span>${n}</span><input type="color" data-field="${f}" value="${o[f] || '#ffffff'}"></div>`;
+      title = T('ed.p.colorAt', { x: o.x });
+      for (const [f, n] of [['bg', 'bg'], ['ground', 'ground'], ['obj', 'blocks'], ['line', 'line']]) {
+        html += `<div class="ed-f"><span>${T('ed.p.' + n)}</span><input type="color" data-field="${f}" value="${o[f] || '#ffffff'}"></div>`;
       }
-      html += stepper('Fundido (bloques)', o.fade != null ? o.fade : 8, 'fade');
+      html += stepper(T('ed.p.fade'), o.fade != null ? o.fade : 8, 'fade');
     } else if (k === 'trig') {
-      const info = TRIG[o.kind] || { name: o.kind };
-      title = 'Trigger: ' + info.name.toLowerCase();
-      for (const [f, label, type, mn, mx, st] of TRIG_FIELDS[o.kind] || []) {
-        if (type === 'ease') html += `<div class="ed-f"><span>${label}</span><select data-tfield="${f}" data-type="ease">${EASES.map(([v, n]) => `<option value="${v}" ${(o.ease || 'inout') === v ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`;
+      title = T('item.trig', nl(TRIG[o.kind] ? trigName(o.kind) : String(o.kind)));
+      for (const [f, lbl, type, mn, mx, st] of TRIG_FIELDS[o.kind] || []) {
+        const label = T('ed.f.' + lbl);
+        if (type === 'ease') html += `<div class="ed-f"><span>${label}</span><select data-tfield="${f}" data-type="ease">${EASES.map((v) => `<option value="${v}" ${(o.ease || 'inout') === v ? 'selected' : ''}>${T('ease.' + v)}</option>`).join('')}</select></div>`;
         else if (type === 'bool') html += `<div class="ed-f"><span>${label}</span><input type="checkbox" data-tfield="${f}" data-type="bool" ${o[f] !== false ? 'checked' : ''}></div>`;
         else if (type === 'color') html += `<div class="ed-f"><span>${label}</span><input type="color" data-tfield="${f}" data-type="color" value="${HEX.test(o[f]) ? o[f] : '#ffffff'}"></div>`;
         else if (type === 'target') html += `<div class="ed-f"><span>${label}</span><input type="text" maxlength="20" data-tfield="${f}" data-type="target" value="${esc(o[f] != null ? o[f] : '')}"></div>`;
         else if (type === 'center') {
           const has = typeof o.cx === 'number';
           html += `<div class="ed-f"><span>${label}</span><input type="checkbox" data-tfield="center" data-type="center" ${has ? 'checked' : ''}></div>`;
-          if (has) html += `<div class="ed-f"><span>Centro x</span><input type="number" step="0.5" data-tfield="cx" data-type="num" data-min="-10" data-max="20000" value="${o.cx}"></div><div class="ed-f"><span>Centro y</span><input type="number" step="0.5" data-tfield="cy" data-type="num" data-min="-10" data-max="60" value="${o.cy}"></div>`;
+          if (has) html += `<div class="ed-f"><span>${T('ed.p.centerX')}</span><input type="number" step="0.5" data-tfield="cx" data-type="num" data-min="-10" data-max="20000" value="${o.cx}"></div><div class="ed-f"><span>${T('ed.p.centerY')}</span><input type="number" step="0.5" data-tfield="cy" data-type="num" data-min="-10" data-max="60" value="${o.cy}"></div>`;
         } else html += `<div class="ed-f"><span>${label}</span><input type="number" data-tfield="${f}" data-type="${type}" data-min="${mn}" data-max="${mx}" step="${type === 'int' ? 1 : st || 0.5}" value="${o[f] != null ? o[f] : ''}"></div>`;
       }
-      html += `<div class="ed-f"><span>Sólo con spawn</span><input type="checkbox" data-tfield="spawnOnly" data-type="spawnOnly" ${o.spawnOnly ? 'checked' : ''}></div>`;
-      html += `<div class="ed-f"><span>Id (para spawn)</span><input type="text" maxlength="20" data-tfield="id" data-type="id" value="${esc(o.id != null ? o.id : '')}" placeholder="opcional"></div>`;
-      html += '<span class="tag">Se activa cuando el jugador pasa por su x. Los grupos se ponen en el campo "Grupo" de cada objeto.</span>';
+      html += `<div class="ed-f"><span>${T('ed.p.spawnOnly')}</span><input type="checkbox" data-tfield="spawnOnly" data-type="spawnOnly" ${o.spawnOnly ? 'checked' : ''}></div>`;
+      html += `<div class="ed-f"><span>${T('ed.p.id')}</span><input type="text" maxlength="20" data-tfield="id" data-type="id" value="${esc(o.id != null ? o.id : '')}" placeholder="${esc(T('ed.p.optional'))}"></div>`;
+      html += `<span class="tag">${esc(T('ed.p.trigTag'))}</span>`;
     }
     if (k === 'obj' || k === 'deco') {
       const gs = Sim.groupsOf(o);
-      html += `<div class="ed-f"><span>Grupo</span><input type="text" maxlength="30" data-gfield="1" value="${gs ? gs.join(', ') : ''}" placeholder="ninguno (p. ej. 1 o 1, 3)"></div>`;
+      html += `<div class="ed-f"><span>${T('ed.p.group')}</span><input type="text" maxlength="30" data-gfield="1" value="${gs ? gs.join(', ') : ''}" placeholder="${esc(T('ed.p.groupPh'))}"></div>`;
     }
     if (isSel) {
-      html += `<div class="ed-acts">${k !== 'color' ? '<button class="ed-b" data-act="dup" title="Ctrl+D">⧉ Duplicar</button>' : ''}<button class="ed-b danger" data-act="delete" title="Supr">✖ Borrar</button></div>`;
+      html += `<div class="ed-acts">${k !== 'color' ? `<button class="ed-b" data-act="dup" title="Ctrl+D">${T('ed.p.dup')}</button>` : ''}<button class="ed-b danger" data-act="delete" title="${T('ed.p.delKey')}">${T('ed.p.del')}</button></div>`;
       html += `<span class="tag">x ${o.x}${o.y != null && k !== 'trig' ? ' · y ' + o.y : ''}</span>`;
-    } else html += `<span class="tag">${k === 'trig' ? 'Toca en el nivel para poner el trigger en esa x.' : 'Toca la rejilla para colocar; arrastra para pintar varios. R gira.'}</span>`;
+    } else html += `<span class="tag">${T(k === 'trig' ? 'ed.p.placeTrig' : 'ed.p.place')}</span>`;
     box.innerHTML = `<h3>${esc(title)}</h3>${html}`;
     const edit = (fn) => {
       if (isSel) pushUndo();
@@ -1209,26 +1228,26 @@ function boot() {
     const before = snapshot();
     pushUndo(); // todo lo que se cambie en esta ventana se deshace de una vez
     modal(`
-      <h2>Ajustes del nivel</h2>
-      <div class="ed-f"><label for="stName">Nombre</label><input type="text" id="stName" maxlength="40"></div>
-      <div class="ed-f"><label for="stSong">Música</label><select id="stSong">${SONGS.map(([id, n]) => `<option value="${id}" ${id === lv.song ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-      <div class="ed-f"><label for="stBpm">Tempo (BPM)</label><input type="number" id="stBpm" min="40" max="300" step="0.01" value="${lv.bpm}"></div>
-      <div class="ed-f"><label for="stMode">Empieza como</label><select id="stMode">${opt(MODES, lv.startMode, (m) => MODE_NAME[m])}</select></div>
-      <div class="ed-f"><label for="stSpeed">Velocidad inicial</label><select id="stSpeed">${opt(SPEEDS, lv.startSpeed, (v) => v + 'x')}</select></div>
-      <div class="ed-f"><label for="stLen">Largo (bloques, 0 = auto)</label><input type="number" id="stLen" min="0" max="20000" step="1" value="${lv.length || 0}"></div>
+      <h2>${T('ed.s.title')}</h2>
+      <div class="ed-f"><label for="stName">${T('ed.s.name')}</label><input type="text" id="stName" maxlength="40"></div>
+      <div class="ed-f"><label for="stSong">${T('ed.s.music')}</label><select id="stSong">${SONGS.map((id) => `<option value="${id}" ${id === lv.song ? 'selected' : ''}>${esc(songName(id))}</option>`).join('')}</select></div>
+      <div class="ed-f"><label for="stBpm">${T('ed.s.bpm')}</label><input type="number" id="stBpm" min="40" max="300" step="0.01" value="${lv.bpm}"></div>
+      <div class="ed-f"><label for="stMode">${T('ed.s.mode')}</label><select id="stMode">${opt(MODES, lv.startMode, modeName)}</select></div>
+      <div class="ed-f"><label for="stSpeed">${T('ed.s.speed')}</label><select id="stSpeed">${opt(SPEEDS, lv.startSpeed, (v) => v + 'x')}</select></div>
+      <div class="ed-f"><label for="stLen">${T('ed.s.length')}</label><input type="number" id="stLen" min="0" max="20000" step="1" value="${lv.length || 0}"></div>
       <p id="stLenInfo"></p>
-      <div class="ed-f"><label for="stTheme">Paisaje</label><select id="stTheme">${window.ND3D.World.THEMES.map((t) => `<option value="${t}" ${t === (lv.theme3d || 'ciudad') ? 'selected' : ''}>${window.ND3D.World.THEME_NAMES[t]}</option>`).join('')}</select></div>
-      <div class="ed-f"><label for="stBg">Color de fondo</label><input type="color" id="stBg" value="${c0.bg}"></div>
-      <div class="ed-f"><label for="stGround">Suelo</label><input type="color" id="stGround" value="${c0.ground}"></div>
-      <div class="ed-f"><label for="stLine">Línea del suelo</label><input type="color" id="stLine" value="${c0.line || '#ffffff'}"></div>
-      <div class="ed-f"><label for="stObj">Bordes de los bloques</label><input type="color" id="stObj" value="${c0.obj || '#ff9f3b'}"></div>
-      <p>Para cambiar los colores a mitad del nivel usa "Cambio de color" (pestaña Extra).</p>
-      <div class="row"><button class="btn" id="stDone">Listo</button></div>`, (r) => {
+      <div class="ed-f"><label for="stTheme">${T('ed.s.theme')}</label><select id="stTheme">${window.ND3D.World.THEMES.map((t) => `<option value="${t}" ${t === (lv.theme3d || 'ciudad') ? 'selected' : ''}>${window.ND3D.World.THEME_NAMES[t]}</option>`).join('')}</select></div>
+      <div class="ed-f"><label for="stBg">${T('ed.s.bg')}</label><input type="color" id="stBg" value="${c0.bg}"></div>
+      <div class="ed-f"><label for="stGround">${T('ed.s.ground')}</label><input type="color" id="stGround" value="${c0.ground}"></div>
+      <div class="ed-f"><label for="stLine">${T('ed.s.line')}</label><input type="color" id="stLine" value="${c0.line || '#ffffff'}"></div>
+      <div class="ed-f"><label for="stObj">${T('ed.s.obj')}</label><input type="color" id="stObj" value="${c0.obj || '#ff9f3b'}"></div>
+      <p>${esc(T('ed.s.colorsNote'))}</p>
+      <div class="row"><button class="btn" id="stDone">${T('ed.s.done')}</button></div>`, (r) => {
       r.querySelector('#stName').value = lv.name;
-      const info = () => { r.querySelector('#stLenInfo').textContent = `Ahora: ${lengthOf(lv)} bloques${lv.length > 0 ? '' : ' (último objeto + 12)'}`; };
+      const info = () => { r.querySelector('#stLenInfo').textContent = T('ed.s.lenNow', { n: lengthOf(lv), auto: lv.length > 0 ? '' : T('ed.s.lenAuto') }); };
       const upd = () => { changed(); info(); };
       info();
-      r.querySelector('#stName').addEventListener('input', (e) => { lv.name = e.target.value.slice(0, 40) || 'Sin nombre'; $('edName').value = lv.name; upd(); });
+      r.querySelector('#stName').addEventListener('input', (e) => { lv.name = e.target.value.slice(0, 40) || T('ed.n.untitled'); $('edName').value = lv.name; upd(); });
       r.querySelector('#stSong').addEventListener('change', (e) => { lv.song = e.target.value; if (lv.song.startsWith('track:')) Sound.loadTrack(lv.song); lv.bpm = SONG_BPM[lv.song]; r.querySelector('#stBpm').value = lv.bpm; upd(); });
       r.querySelector('#stBpm').addEventListener('change', (e) => { const v = Number(e.target.value); if (v >= 40 && v <= 300) lv.bpm = v; else e.target.value = lv.bpm; upd(); });
       r.querySelector('#stTheme').addEventListener('change', (e) => { lv.theme3d = e.target.value; upd(); });
@@ -1246,8 +1265,8 @@ function boot() {
   }
 
   function clearModal() {
-    modal(`<h2>¿Vaciar el nivel?</h2><p>Se quitan todos los objetos, decorados y cambios de color. Se puede deshacer con Ctrl+Z.</p>
-      <div class="row"><button class="btn orange" id="clYes">Vaciar</button><button class="btn ghost" id="clNo">Cancelar</button></div>`, (r) => {
+    modal(`<h2>${T('ed.c.title')}</h2><p>${T('ed.c.text')}</p>
+      <div class="row"><button class="btn orange" id="clYes">${T('ed.c.yes')}</button><button class="btn ghost" id="clNo">${T('ed.cancel')}</button></div>`, (r) => {
       r.querySelector('#clYes').addEventListener('click', () => {
         pushUndo();
         ed.lv.objects = []; ed.lv.decos = []; ed.lv.triggers = []; ed.lv.colors = [ed.lv.colors[0]];
@@ -1273,14 +1292,14 @@ function boot() {
   const HEX = /^#[0-9a-fA-F]{6}$/;
   function decode(code) {
     code = String(code || '').trim();
-    if (code.length > 2000000) throw new Error('El código es demasiado largo.');
-    if (!code.startsWith('ND1.')) throw new Error('Eso no parece un código de nivel (debe empezar por ND1.).');
+    if (code.length > 2000000) throw new Error(T('ed.err.long'));
+    if (!code.startsWith('ND1.')) throw new Error(T('ed.err.prefix'));
     let data;
     try {
       const bin = atob(code.slice(4).replace(/\s+/g, ''));
       const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
       data = JSON.parse(new TextDecoder().decode(bytes));
-    } catch (e) { throw new Error('El código está incompleto o dañado.'); }
+    } catch (e) { throw new Error(T('ed.err.broken')); }
     return sanitize(data);
   }
   // Grupos de un objeto importado: enteros 1..999 (como mucho 8).
@@ -1300,7 +1319,7 @@ function boot() {
         const v = t[f];
         if (type === 'int') c[f] = Number.isInteger(v) && v >= mn && v <= mx ? v : TRIG[t.kind].tpl[f];
         else if (type === 'num') c[f] = num(v, mn, mx) ? v : TRIG[t.kind].tpl[f];
-        else if (type === 'ease') { if (EASES.some(([e]) => e === v)) c.ease = v; }
+        else if (type === 'ease') { if (EASES.includes(v)) c.ease = v; }
         else if (type === 'bool') c[f] = v !== false;
         else if (type === 'color') c[f] = HEX.test(v) ? v : '#ffffff';
         else if (type === 'target') c[f] = Number.isInteger(v) && v >= 0 && v <= 999 ? v : typeof v === 'string' && TRIG_ID.test(v) ? v : 1;
@@ -1314,9 +1333,9 @@ function boot() {
   }
   // Valida campo a campo: tipos conocidos y números en rango. Nada se evalúa.
   function sanitize(d) {
-    if (!d || typeof d !== 'object') throw new Error('El código no contiene un nivel.');
+    if (!d || typeof d !== 'object') throw new Error(T('ed.err.empty'));
     const lv = newLevel();
-    lv.name = typeof d.name === 'string' && d.name.trim() ? d.name.trim().slice(0, 40) : 'Nivel importado';
+    lv.name = typeof d.name === 'string' && d.name.trim() ? d.name.trim().slice(0, 40) : T('ed.n.imported');
     if (SONG_BPM[d.song]) lv.song = d.song;
     lv.bpm = num(d.bpm, 40, 300) ? d.bpm : SONG_BPM[lv.song];
     if (MODES.includes(d.startMode)) lv.startMode = d.startMode;
@@ -1324,7 +1343,7 @@ function boot() {
     if (num(d.length, 10, 20000)) lv.length = Math.round(d.length);
     if (window.ND3D.World.THEMES.includes(d.theme3d)) lv.theme3d = d.theme3d;
     const objs = Array.isArray(d.objects) ? d.objects : [];
-    if (objs.length > 6000) throw new Error('El nivel tiene demasiados objetos (máximo 6000).');
+    if (objs.length > 6000) throw new Error(T('ed.err.tooMany'));
     const KIND = { pad: PAD_KINDS, orb: ORB_KINDS, portal: PORTAL_KINDS.concat('speed') };
     lv.objects = [];
     for (const o of objs) {
@@ -1353,7 +1372,7 @@ function boot() {
     const decos = Array.isArray(d.decos) ? d.decos.slice(0, 2000) : [];
     lv.decos = [];
     for (const o of decos) {
-      if (!o || !DECO_KINDS.some(([k]) => k === o.kind) || !num(o.x, -10, 20000) || !num(o.y, -10, 60)) continue;
+      if (!o || !DECO_KINDS.includes(o.kind) || !num(o.x, -10, 20000) || !num(o.y, -10, 60)) continue;
       const c = { kind: o.kind, x: o.x, y: o.y, color: HEX.test(o.color) ? o.color : '#ffffff' };
       for (const f of ['w', 'h', 'r']) if (num(o[f], 0.1, 60)) c[f] = o[f];
       if (num(o.par, 0, 1)) c.par = o.par;
@@ -1379,16 +1398,16 @@ function boot() {
 
   function shareModal(lv) {
     const code = encode(lv);
-    modal(`<h2>Compartir</h2>
-      <p>Copia el código de "${esc(lv.name)}" y pásaselo a quien quieras: lo pega en "Importar".</p>
-      <textarea id="shCode" readonly aria-label="Código del nivel"></textarea>
+    modal(`<h2>${T('ed.sh.title')}</h2>
+      <p>${T('ed.sh.text', { name: esc(lv.name) })}</p>
+      <textarea id="shCode" readonly aria-label="${T('ed.code')}"></textarea>
       <p id="shMsg">${(code.length / 1024).toFixed(1)} KB</p>
-      <div class="row"><button class="btn" id="shCopy">Copiar</button><button class="btn ghost" id="shClose">Cerrar</button></div>`, (r) => {
+      <div class="row"><button class="btn" id="shCopy">${T('ed.sh.copy')}</button><button class="btn ghost" id="shClose">${T('ed.close')}</button></div>`, (r) => {
       const ta = r.querySelector('#shCode');
       ta.value = code;
       r.querySelector('#shCopy').addEventListener('click', () => {
-        const ok = () => { r.querySelector('#shMsg').textContent = 'Copiado'; };
-        const fallback = () => { ta.focus(); ta.select(); r.querySelector('#shMsg').textContent = 'Seleccionado: cópialo con Ctrl+C (o Cmd+C)'; };
+        const ok = () => { r.querySelector('#shMsg').textContent = T('ed.sh.copied'); };
+        const fallback = () => { ta.focus(); ta.select(); r.querySelector('#shMsg').textContent = T('ed.sh.selected'); };
         try {
           if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(ok, fallback);
           else fallback();
@@ -1398,11 +1417,11 @@ function boot() {
     });
   }
   function importModal(text) {
-    modal(`<h2>Importar nivel</h2>
-      <p>Pega aquí el código que te pasaron (empieza por ND1.). También sirven los de Neon Dash.</p>
-      <textarea id="imCode" aria-label="Código del nivel" placeholder="ND1.eyJ2Ij..."></textarea>
+    modal(`<h2>${T('ed.im.title')}</h2>
+      <p>${T('ed.im.text')}</p>
+      <textarea id="imCode" aria-label="${T('ed.code')}" placeholder="ND1.eyJ2Ij..."></textarea>
       <p class="err" id="imErr"></p>
-      <div class="row"><button class="btn" id="imGo">Importar</button><button class="btn ghost" id="imClose">Cancelar</button></div>`, (r) => {
+      <div class="row"><button class="btn" id="imGo">${T('ed.im.go')}</button><button class="btn ghost" id="imClose">${T('ed.cancel')}</button></div>`, (r) => {
       const ta = r.querySelector('#imCode');
       if (text) ta.value = text;
       ta.addEventListener('input', () => { r.querySelector('#imErr').textContent = ''; });
@@ -1413,7 +1432,7 @@ function boot() {
           persistLevels();
           closeModal();
           renderList();
-          toast('Importado: ' + lv.name);
+          toast(T('ed.t.imported', { name: lv.name }));
         } catch (e) { r.querySelector('#imErr').textContent = e.message; }
       });
       r.querySelector('#imClose').addEventListener('click', closeModal);
@@ -1424,23 +1443,23 @@ function boot() {
   function renderList() {
     const list = $('edCards');
     if (!levels.length) {
-      list.innerHTML = '<p class="ed-empty">Todavía no tienes niveles. Pulsa "Nuevo nivel" para empezar o importa uno con un código.</p>';
+      list.innerHTML = `<p class="ed-empty">${esc(T('ed.l.empty'))}</p>`;
       return;
     }
     list.innerHTML = levels.map((lv, i) => {
       const sp = Sim.SPEEDS[lv.startSpeed || 1] || Sim.SPEEDS[1];
       const secs = Math.round(lengthOf(lv) * B / sp.ups);
       const modes = new Set([lv.startMode]);
-      for (const o of lv.objects) if (o.t === 'portal' && MODE_NAME[o.kind]) modes.add(o.kind);
+      for (const o of lv.objects) if (o.t === 'portal' && MODES.includes(o.kind)) modes.add(o.kind);
       return `<div class="ed-card" data-i="${i}">
         <h3>${esc(lv.name)}</h3>
-        <div class="info">${lv.objects.length} objetos · ~${secs} s · ${Array.from(modes).map((m) => MODE_NAME[m] || m).join(', ')}</div>
+        <div class="info">${T('ed.l.info', { n: lv.objects.length, s: secs, modes: Array.from(modes).map((m) => (MODES.includes(m) ? modeName(m) : esc(m))).join(', ') })}</div>
         <div class="ed-acts" data-row>
-          <button class="ed-b go" data-a="edit">✎ Editar</button>
-          <button class="ed-b pr" data-a="play">▶ Jugar</button>
-          <button class="ed-b" data-a="dup">⧉ Duplicar</button>
-          <button class="ed-b" data-a="share">⇪ Compartir</button>
-          <button class="ed-b danger" data-a="del" aria-label="Borrar ${esc(lv.name)}">🗑</button>
+          <button class="ed-b go" data-a="edit">${T('ed.l.edit')}</button>
+          <button class="ed-b pr" data-a="play">${T('ed.l.play')}</button>
+          <button class="ed-b" data-a="dup">${T('ed.l.dup')}</button>
+          <button class="ed-b" data-a="share">${T('ed.l.share')}</button>
+          <button class="ed-b danger" data-a="del" aria-label="${T('ed.l.delAria', { name: esc(lv.name) })}">🗑</button>
         </div>
       </div>`;
     }).join('');
@@ -1454,14 +1473,14 @@ function boot() {
       else if (a === 'share') shareModal(lv);
       else if (a === 'dup') {
         const c = JSON.parse(JSON.stringify(lv));
-        c.id = uid(); c.name = (lv.name + ' (copia)').slice(0, 40); c.created = c.updated = Date.now();
+        c.id = uid(); c.name = T('ed.n.copy', { name: lv.name }).slice(0, 40); c.created = c.updated = Date.now();
         delete c.cam;
         levels.splice(i + 1, 0, c);
         persistLevels(); renderList();
       } else if (a === 'del') {
         // Confirmación dentro de la propia tarjeta.
         const row = b.closest('[data-row]');
-        row.innerHTML = `<span class="tag" style="font-weight:900">¿Borrar "${esc(lv.name)}"?</span><button class="ed-b danger" data-c="yes">Sí, borrar</button><button class="ed-b" data-c="no">No</button>`;
+        row.innerHTML = `<span class="tag" style="font-weight:900">${T('ed.l.delAsk', { name: esc(lv.name) })}</span><button class="ed-b danger" data-c="yes">${T('ed.l.delYes')}</button><button class="ed-b" data-c="no">${T('ed.l.delNo')}</button>`;
         row.querySelector('[data-c="yes"]').addEventListener('click', () => { levels.splice(i, 1); persistLevels(); renderList(); });
         row.querySelector('[data-c="no"]').addEventListener('click', renderList);
       }
@@ -1531,7 +1550,7 @@ function boot() {
   function verify() {
     if (!ed.lv) return;
     const def = toDef(ed.lv);
-    if (!def.objects.length) { toast('El nivel está vacío'); return; }
+    if (!def.objects.length) { toast(T('ed.t.empty')); return; }
     const src = SIM_SRC + '\n' + SOLVER_SRC + `
       onmessage = (e) => {
         const L = Sim.compileLevel(e.data.def);
@@ -1541,10 +1560,11 @@ function boot() {
         postMessage({ done: true, ok: r.ok, furthest: r.furthest, end: L.endX, cause: r.cause, timeout: !!r.timeout, taps });
       };`;
     const worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
-    const CAUSE = { spike: 'un pincho', saw: 'una sierra', block: 'un bloque', slope: 'una rampa', out: 'salirse del nivel', tiempo: 'tardar demasiado' };
-    modal(`<h2>Verificar</h2><p id="vfMsg">El bot está buscando una ruta…</p>
+    // causa del choque: ed.v.c.<causa> (src/i18n.js)
+    const CAUSE = ['spike', 'saw', 'block', 'slope', 'out', 'tiempo'];
+    modal(`<h2>${T('ed.v.title')}</h2><p id="vfMsg">${T('ed.v.searching')}</p>
       <div class="bar"><div class="track"><div class="fill" id="vfBar" style="width:0%"></div></div></div>
-      <div class="row"><button class="btn ghost small" id="vfClose">Cerrar</button></div>`, (b) => {
+      <div class="row"><button class="btn ghost small" id="vfClose">${T('ed.close')}</button></div>`, (b) => {
       b.querySelector('#vfClose').addEventListener('click', () => { worker.terminate(); closeModal(); });
     });
     worker.onmessage = (e) => {
@@ -1554,15 +1574,15 @@ function boot() {
       worker.terminate();
       if (d.ok) {
         bar.style.width = '100%';
-        msg.textContent = `✔ Se puede completar. El bot lo ha pasado con ${d.taps} pulsaciones.`;
+        msg.textContent = T('ed.v.ok', { n: d.taps });
       } else {
         const pct = Math.max(0, Math.min(100, Math.round(d.furthest / d.end * 100)));
-        msg.textContent = d.timeout ? `No he encontrado ruta a tiempo (llega al ${pct} %). Puede que sea demasiado difícil.`
-          : `✖ El bot no puede pasar del ${pct} %: choca con ${CAUSE[d.cause] || 'un obstáculo'}. Te llevo a ese punto.`;
+        msg.textContent = d.timeout ? T('ed.v.timeout', { pct })
+          : T('ed.v.fail', { pct, cause: T('ed.v.c.' + (CAUSE.includes(d.cause) ? d.cause : 'other')) });
         if (!d.timeout) { ed.cam.x = Math.max(4, d.furthest / B); }
       }
     };
-    worker.onerror = (e) => { const msg = $('vfMsg'); if (msg) msg.textContent = 'No se pudo verificar: ' + (e.message || 'error'); worker.terminate(); };
+    worker.onerror = (e) => { const msg = $('vfMsg'); if (msg) msg.textContent = T('ed.v.error', { msg: e.message || 'error' }); worker.terminate(); };
     worker.postMessage({ def });
   }
   function exitToMenu() {
@@ -1596,7 +1616,7 @@ function boot() {
   $('edExit').addEventListener('click', withClick(exitToMenu));
   $('edNew').addEventListener('click', withClick(() => { const lv = newLevel(); levels.unshift(lv); persistLevels(); openEditor(lv); }));
   $('edImport').addEventListener('click', withClick(() => importModal()));
-  $('edName').addEventListener('input', (e) => { ed.lv.name = e.target.value.slice(0, 40) || 'Sin nombre'; changed(); });
+  $('edName').addEventListener('input', (e) => { ed.lv.name = e.target.value.slice(0, 40) || T('ed.n.untitled'); changed(); });
   $('edUndo').addEventListener('click', undo);
   $('edRedo').addEventListener('click', redo);
   $('edSettings').addEventListener('click', withClick(settingsModal));
@@ -1628,6 +1648,13 @@ function boot() {
     if (game.screen !== 'editor' || ed.lv || !$('edModal').hidden) return;
     const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
     if (text.trim().startsWith('ND1.')) importModal(text.trim());
+  });
+
+  // Cambio de idioma (Ajustes de la pausa mientras se prueba un nivel): textos fijos y lo que esté a la vista.
+  window.addEventListener('langchange', () => {
+    window.I18N.apply(root);
+    renderPalette();
+    if (ed.lv) { renderProps(); status(); } else if (!$('edList').hidden) renderList();
   });
 
   ND.editor = { open, view, encode, decode, sanitize, toDef, _ed: ed };
