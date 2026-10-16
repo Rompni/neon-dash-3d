@@ -5,6 +5,9 @@
  * Usa window.ND3D (ver el final de src/game.js).
  */
 import * as THREE from 'three';
+// la física y el bot, como texto, para el Web Worker del botón Verificar
+import SIM_SRC from './sim.js?raw';
+import SOLVER_SRC from './solver.js?raw';
 
 const STORE = 'neondash3d.levels.v1';
 const DEG = Math.PI / 180;
@@ -1524,12 +1527,12 @@ function boot() {
   }
 
   // Verificar: el bot de Neon Dash busca una ruta ganadora en un Web Worker (con la física y el bot del juego,
-  // que van en los <script data-worker>). Cambia la entrada como mucho cada 6 ticks (unas 40 veces por segundo).
+  // importados como texto al principio del archivo). Cambia la entrada como mucho cada 6 ticks (unas 40 veces por segundo).
   function verify() {
     if (!ed.lv) return;
     const def = toDef(ed.lv);
     if (!def.objects.length) { toast('El nivel está vacío'); return; }
-    const src = Array.from(document.querySelectorAll('script[data-worker]')).map((s) => s.textContent).join('\n') + `
+    const src = SIM_SRC + '\n' + SOLVER_SRC + `
       onmessage = (e) => {
         const L = Sim.compileLevel(e.data.def);
         const r = Solver.solve(L, 6, 3000, null, null, { maxSteps: 60000, onProgress(x) { postMessage({ progress: x / L.endX }); } });

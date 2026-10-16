@@ -4,10 +4,20 @@
   "private": true,
   "description": "Plataformas rítmico en 3D (Three.js) con la física de Neon Dash",
   "scripts": {
-    "build": "node build.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "node test/physics.test.js && node test/modes.test.js && node test/demos.test.js && node test/triggers.test.js && node test/framerate.test.js",
     "bot": "node test/bot.js 4 && node test/bot.js 12",
-    "demos": "node tools/solve-demos.js 6",
-    "serve": "python3 -m http.server 8792 --directory dist"
+    "demos": "node tools/solve-demos.js 6"
+  },
+  "dependencies": {
+    "@fontsource/lilita-one": "^5.3.0",
+    "@fontsource/nunito": "^5.3.0",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.4.4",
+    "vite-plugin-pwa": "^2.0.0"
   }
 }

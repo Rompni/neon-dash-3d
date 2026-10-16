@@ -25,13 +25,16 @@ mundo 3D con cámara en perspectiva, bloom, ciudad nocturna, partículas y model
 ## Jugar
 
 ```
-node build.js        # genera dist/index.html (página completa) y dist/neon-dash-3d.html (fragmento para publicar)
-npm run serve        # http://localhost:8792
+npm install          # la primera vez
+npm run dev          # servidor de desarrollo con recarga: http://localhost:8792
+npm run build        # versión para publicar en dist/ (subir la carpeta entera)
+npm run preview      # sirve dist/ en http://localhost:8792 para probar la versión final
 ```
 
-Three.js se carga desde jsdelivr (versión 0.170.0), así que la primera vez hace falta conexión.
-Las canciones van en `dist/music/` (las copia build.js) y se cargan junto al HTML: sin esa carpeta (p. ej. abriendo el
-HTML suelto) el juego usa la música sintetizada de respaldo.
+Hecho con Vite. Todo va dentro del juego (Three.js 0.170.0 y las fuentes Lilita One y Nunito), sin depender de
+servicios externos. Es una PWA: se puede instalar como app y, una vez abierto, funciona sin conexión (las canciones
+se guardan la primera vez que suenan). `dist/` usa rutas relativas, así que sirve en cualquier carpeta (itch.io,
+GitHub Pages, Electron, Capacitor).
 
 - **Saltar:** `Espacio` / `↑` / `W` / clic / toque. **Pausa:** `Esc`. **Reiniciar:** `R`.
 - **Práctica:** puntos de control automáticos; `Z` marca uno y `X` lo quita.
@@ -68,16 +71,18 @@ src/editor.js   editor de niveles
 src/levels.js   Builder y utilidades de los niveles (ritmo, adornos) y el orden del menú
 src/niveles/    un archivo por nivel
 src/tracks.js   datos medidos de cada canción: BPM, primer compás, duración, energía por compás
-src/music/      las canciones en MP3 (recortadas al final de una sección, volumen igualado a −13 LUFS); lo que queda
+public/music/   las canciones en MP3 (recortadas al final de una sección, volumen igualado a −13 LUFS); lo que queda
                 tras la meta de un nivel (r.end) se quita solo (levels.js, recortar)
+public/icons/   íconos de la app (PWA) y favicon
 src/audio.js    reproducción de las canciones, música sintetizada de respaldo y efectos
 src/meta.js     progreso: orbes, diamantes, tienda, logros, misiones, cofres y música propia por nivel
 src/demos.js    rutas ganadoras del bot para la demo del menú (generado por tools/solve-demos.js)
-src/models.js   modelos del jugador en GLB, en base64 (generado por tools/import-models.js)
+src/main.js     punto de entrada: carga los scripts en orden y arranca el juego
+assets/modelos.glb  modelos del jugador (exportados de Blender; Vite lo copia a dist/assets)
 src/world.js    todo lo 3D: escena, materiales, construcción del nivel, jugador, partículas, posproceso y cámara
 src/game.js     bucle de paso fijo, entrada, cámara vertical, menús y guardado (localStorage neondash3d.v1)
 src/index.html  interfaz y estilos
-build.js        junta todo en un HTML; <script src="a.js+b.js"> concatena módulos en un solo <script>
+vite.config.js  Vite + PWA; sirve world.js, game.js y meta.js juntos como un módulo (comparten ámbito)
 ```
 
 Escala: 1 bloque = 30 unidades de la física = 1 unidad 3D. El plano de juego es z = 0.
@@ -94,7 +99,6 @@ energía por compás. Créditos: "Música: generada con Flow Music (IA)" (se mue
 
 ```
 node tools/solve-demos.js        # recalcula las rutas de la demo del menú (unos 10 min; o sólo algunos: … 6 telarana)
-node tools/import-models.js      # mete assets/modelos.glb en src/models.js
 ```
 
 Modelos en Blender: `tools/blender/models.py` crea la escena (`assets/modelos.blend`) con los 96 modelos (12 estilos para cada uno de los 8 modos),

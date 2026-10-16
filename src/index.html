@@ -1,13 +1,16 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07060f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Plataformas rítmico en 3D: salta al ritmo de la música.">
 <title>Neon Dash 3D</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
-<script type="importmap">
-{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-} }
-</script>
+<link rel="icon" type="image/png" href="./icons/favicon.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 <style>
   :root {
     --ink: #07060f;
@@ -199,6 +202,8 @@
     .setting input[type=range] { width: 120px; }
   }
 </style>
+</head>
+<body>
 
 <div id="app">
   <canvas id="view" tabindex="0" aria-label="Juego"></canvas>
@@ -320,19 +325,12 @@
   <div id="loading">Cargando…</div>
 </div>
 <script>
-  // Si el módulo 3D no arranca (sin conexión para descargar Three.js, o un error), se avisa en vez de quedarse en negro.
+  // Si el juego no arranca (un error al cargar), se avisa en vez de quedarse en negro.
   setTimeout(function () {
     var el = document.getElementById('loading');
-    if (el && el.style.opacity !== '0') { el.className = 'err'; el.textContent = 'No se pudo cargar el motor 3D. Hace falta conexión a internet para descargar Three.js.'; }
-  }, 12000);
+    if (el && el.style.opacity !== '0') { el.className = 'err'; el.textContent = 'No se pudo cargar el juego. Prueba a recargar la página.'; }
+  }, 15000);
 </script>
-
-<script data-worker src="sim.js"></script>
-<script src="tracks.js"></script>
-<script src="niveles/primer-pulso.js+niveles/orbita.js+niveles/fase-doble.js+niveles/ladera.js+niveles/espejo.js+niveles/abismo.js+niveles/bano-de-sangre.js+niveles/telarana.js+niveles/engranaje.js+niveles/vertigo.js+niveles/zigzag.js+niveles/apex.js+levels.js"></script>
-<script data-worker src="solver.js"></script>
-<script src="audio.js"></script>
-<script src="demos.js"></script>
-<script src="models.js"></script>
-<script type="module" src="world.js+game.js+meta.js"></script>
-<script type="module" src="editor.js"></script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
